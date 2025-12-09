@@ -18,12 +18,14 @@ app = Flask(__name__)
 # Read secret key from environment or generate one
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
-# Support subpath deployment via SCRIPT_NAME
-# This is set by the reverse proxy or WSGI server
-def get_base_url():
-    """Get the base URL path for URL generation."""
-    script_name = os.environ.get('SCRIPT_NAME', '')
-    return script_name.rstrip('/')
+# Get application root for subpath deployment (Vercel/Render)
+APPLICATION_ROOT = os.environ.get('APPLICATION_ROOT', '/')
+if APPLICATION_ROOT and not APPLICATION_ROOT.startswith('/'):
+    APPLICATION_ROOT = '/' + APPLICATION_ROOT
+
+# Configure Flask for subpath deployment
+if APPLICATION_ROOT != '/':
+    app.config['APPLICATION_ROOT'] = APPLICATION_ROOT
 
 # OAuth Configuration - Read from environment or file
 # Allow OAuth over HTTP for local development (set to '0' in production)
