@@ -1,24 +1,16 @@
 """
 Vercel serverless function entry point
-Handles requests at /autogsc/* path
+For subdomain deployment: autogsc.lighthouselaunch.com
 """
 import sys
 import os
 
-# Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add project root to path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
 
-# Set application root for subpath deployment
-os.environ['APPLICATION_ROOT'] = '/autogsc'
-os.environ['SCRIPT_NAME'] = '/autogsc'
-
+# Import Flask app (no subpath needed for subdomain)
 from app_oauth import app
 
-# Vercel expects a handler function
-def handler(request):
-    """Vercel serverless function handler."""
-    return app(request.environ, request.start_response)
-
-# Export for Vercel
-handler = app
-
+# Vercel Python runtime expects the app to be exported directly
+# The @vercel/python builder will wrap this appropriately

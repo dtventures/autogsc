@@ -1,4 +1,4 @@
-# Vercel Deployment Guide: lighthouselaunch.com/autogsc
+# Vercel Deployment Guide: autogsc.lighthouselaunch.com
 
 ## Prerequisites
 - Vercel account (free tier works)
@@ -53,64 +53,56 @@ Add these variables:
    - Value: `0`
 
 4. **REDIRECT_URI**
-   - Value: `https://lighthouselaunch.com/autogsc/oauth/callback`
+   - Value: `https://autogsc.lighthouselaunch.com/oauth/callback`
 
-5. **APPLICATION_ROOT** (optional, already in vercel.json)
-   - Value: `/autogsc`
-
-## Step 4: Configure Custom Domain
+## Step 4: Configure Custom Domain (Subdomain)
 
 1. **In Vercel Dashboard** → Your Project → Settings → Domains
-2. **Add Domain**: `lighthouselaunch.com`
+2. **Add Domain**: `autogsc.lighthouselaunch.com`
 3. **Vercel will show DNS records** to add:
-   - Usually a CNAME or A record
+   - Usually a CNAME record pointing to Vercel
 4. **Add DNS record** in your DNS provider (where lighthouselaunch.com is hosted):
-   - Follow Vercel's instructions (usually CNAME to `cname.vercel-dns.com`)
+   - Type: **CNAME**
+   - Name: `autogsc`
+   - Value: (Vercel will provide this, usually something like `cname.vercel-dns.com`)
 5. **Wait for DNS propagation** (5-30 minutes)
 
-## Step 5: Configure Path Rewrites
-
-Vercel should automatically handle `/autogsc/*` routes based on `vercel.json`, but verify:
-
-1. **In Vercel Dashboard** → Your Project → Settings → Deployment
-2. **Check that routes are configured**:
-   - `/autogsc/*` → `/api/autogsc.py`
-   - `/autogsc` → `/api/autogsc.py`
-
-## Step 6: Update Google OAuth
+## Step 5: Update Google OAuth
 
 1. **Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)**
 2. **Edit your OAuth 2.0 Client ID**
 3. **Add Authorized redirect URI**:
    ```
-   https://lighthouselaunch.com/autogsc/oauth/callback
+   https://autogsc.lighthouselaunch.com/oauth/callback
    ```
 4. **Save**
 
-## Step 7: Redeploy
+## Step 6: Redeploy
 
 After adding environment variables:
 1. **Go to Deployments tab**
 2. **Click "Redeploy"** on the latest deployment
 3. **Or push a new commit** to trigger auto-deploy
 
-## Step 8: Test
+## Step 7: Test
 
-1. Visit: `https://lighthouselaunch.com/autogsc`
-2. Click "Login" or "Continue with Google"
-3. You should be redirected to Google OAuth
-4. After authorizing, you should be redirected back
+1. Visit: `https://autogsc.lighthouselaunch.com`
+2. You should see the **landing page v2** (dark mode/terminal style)
+3. Click "Login" or "Continue with Google"
+4. You should be redirected to Google OAuth
+5. After authorizing, you should be redirected back to your dashboard
 
 ## Troubleshooting
 
-### Issue: 404 on /autogsc
-- Check `vercel.json` routes are correct
-- Verify `api/autogsc.py` exists
-- Check deployment logs in Vercel
+### Issue: 404 or domain not working
+- Check DNS records are correct (CNAME for autogsc subdomain)
+- Verify domain is added in Vercel dashboard
+- Wait for DNS propagation (can take up to 48 hours, usually 5-30 minutes)
+- Check Vercel deployment logs
 
 ### Issue: OAuth redirect fails
-- Verify `REDIRECT_URI` environment variable is set correctly
-- Check Google OAuth redirect URI matches exactly
+- Verify `REDIRECT_URI` environment variable is set correctly: `https://autogsc.lighthouselaunch.com/oauth/callback`
+- Check Google OAuth redirect URI matches exactly (including https://)
 - Ensure HTTPS is working (Vercel provides this automatically)
 
 ### Issue: App not loading

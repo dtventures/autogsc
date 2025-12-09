@@ -101,10 +101,10 @@ def get_user_credentials():
 
 @app.route("/")
 def index():
-    """Main page - show login or dashboard."""
+    """Main page - show landing page v2 or dashboard."""
     if 'user' in session:
         return render_template("dashboard_oauth.html")
-    return render_template("home.html")
+    return render_template("home_v2.html")
 
 @app.route("/v2")
 def index_v2():
