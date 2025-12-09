@@ -65,6 +65,7 @@ user_data = {}
 def get_flow():
     """Create OAuth flow from environment variable or file."""
     from flask import request
+    import tempfile
     
     # Construct redirect URI from request if not set in environment
     redirect_uri = REDIRECT_URI
@@ -77,6 +78,7 @@ def get_flow():
     
     if CLIENT_CONFIG:
         # Use config from environment variable
+        # Flow.from_client_secrets_file requires a file, so write to temp file
         try:
             # Validate CLIENT_CONFIG structure
             if not isinstance(CLIENT_CONFIG, dict):
@@ -88,11 +90,23 @@ def get_flow():
             if 'client_secret' not in CLIENT_CONFIG['web']:
                 raise ValueError("CLIENT_CONFIG missing 'client_secret' in 'web' key")
             
-            return Flow.from_client_secrets(
-                CLIENT_CONFIG,
-                scopes=SCOPES,
-                redirect_uri=redirect_uri
-            )
+            # Write config to temporary file
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                json.dump(CLIENT_CONFIG, f)
+                temp_file = f.name
+            
+            try:
+                return Flow.from_client_secrets_file(
+                    temp_file,
+                    scopes=SCOPES,
+                    redirect_uri=redirect_uri
+                )
+            finally:
+                # Clean up temp file (though it will be deleted when process ends)
+                try:
+                    os.unlink(temp_file)
+                except:
+                    pass
         except Exception as e:
             raise ValueError(f"Failed to create OAuth flow from CLIENT_CONFIG: {str(e)}") from e
     else:
