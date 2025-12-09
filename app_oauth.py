@@ -18,6 +18,13 @@ app = Flask(__name__)
 # Read secret key from environment or generate one
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
+# Support subpath deployment via SCRIPT_NAME
+# This is set by the reverse proxy or WSGI server
+def get_base_url():
+    """Get the base URL path for URL generation."""
+    script_name = os.environ.get('SCRIPT_NAME', '')
+    return script_name.rstrip('/')
+
 # OAuth Configuration - Read from environment or file
 # Allow OAuth over HTTP for local development (set to '0' in production)
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = os.environ.get('OAUTHLIB_INSECURE_TRANSPORT', '1')
