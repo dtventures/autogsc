@@ -64,19 +64,35 @@ user_data = {}
 
 def get_flow():
     """Create OAuth flow from environment variable or file."""
+    from flask import request
+    
+    # Construct redirect URI from request if not set in environment
+    redirect_uri = REDIRECT_URI
+    if not redirect_uri or redirect_uri == 'http://localhost:5000/oauth/callback':
+        # Try to construct from request
+        if request and request.host:
+            scheme = request.scheme if hasattr(request, 'scheme') else 'https'
+            host = request.host
+            redirect_uri = f"{scheme}://{host}/oauth/callback"
+    
     if CLIENT_CONFIG:
         # Use config from environment variable
         return Flow.from_client_secrets(
             CLIENT_CONFIG,
             scopes=SCOPES,
-            redirect_uri=REDIRECT_URI
+            redirect_uri=redirect_uri
         )
     else:
         # Use config from file (local development)
+        if not os.path.exists(CLIENT_SECRETS_FILE):
+            raise FileNotFoundError(
+                f"OAuth client secret file not found: {CLIENT_SECRETS_FILE}\n"
+                f"Please set GOOGLE_CLIENT_SECRET environment variable or create client_secret.json"
+            )
         return Flow.from_client_secrets_file(
             CLIENT_SECRETS_FILE,
             scopes=SCOPES,
-            redirect_uri=REDIRECT_URI
+            redirect_uri=redirect_uri
         )
 
 
@@ -106,6 +122,23 @@ def index():
         return render_template("dashboard_oauth.html")
     return render_template("home_v2.html")
 
+@app.route("/debug/oauth-config")
+def debug_oauth_config():
+    """Debug endpoint to check OAuth configuration (remove in production)."""
+    config_status = {
+        "CLIENT_CONFIG_set": CLIENT_CONFIG is not None,
+        "CLIENT_SECRETS_FILE": CLIENT_SECRETS_FILE if CLIENT_SECRETS_FILE else "Not set",
+        "CLIENT_SECRETS_FILE_exists": os.path.exists(CLIENT_SECRETS_FILE) if CLIENT_SECRETS_FILE else False,
+        "REDIRECT_URI": REDIRECT_URI,
+        "GOOGLE_CLIENT_SECRET_ENV_set": GOOGLE_CLIENT_SECRET_ENV is not None,
+        "OAUTHLIB_INSECURE_TRANSPORT": os.environ.get('OAUTHLIB_INSECURE_TRANSPORT'),
+    }
+    if CLIENT_CONFIG:
+        config_status["CLIENT_CONFIG_keys"] = list(CLIENT_CONFIG.keys())
+        if 'web' in CLIENT_CONFIG:
+            config_status["CLIENT_ID"] = CLIENT_CONFIG['web'].get('client_id', 'Not found')
+    return jsonify(config_status)
+
 @app.route("/v2")
 def index_v2():
     """Homepage Version 2 (Dark Mode / Terminal)."""
@@ -115,24 +148,36 @@ def index_v2():
 @app.route("/login")
 def login():
     """Start OAuth flow."""
-    flow = get_flow()
-    authorization_url, state = flow.authorization_url(
-        access_type='offline',
-        include_granted_scopes='true',
-        prompt='consent'
-    )
-    session['state'] = state
-    return redirect(authorization_url)
+    try:
+        flow = get_flow()
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true',
+            prompt='consent'
+        )
+        session['state'] = state
+        return redirect(authorization_url)
+    except Exception as e:
+        import traceback
+        error_msg = f"OAuth setup error: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)  # Log for debugging
+        return f"<h1>OAuth Configuration Error</h1><p>{str(e)}</p><pre>{traceback.format_exc()}</pre>", 500
 
 
 @app.route("/oauth/callback")
 def oauth_callback():
     """Handle OAuth callback."""
-    flow = get_flow()
-    flow.fetch_token(authorization_response=request.url)
-    
-    credentials = flow.credentials
-    session['credentials'] = credentials_to_dict(credentials)
+    try:
+        flow = get_flow()
+        flow.fetch_token(authorization_response=request.url)
+        
+        credentials = flow.credentials
+        session['credentials'] = credentials_to_dict(credentials)
+    except Exception as e:
+        import traceback
+        error_msg = f"OAuth callback error: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)  # Log for debugging
+        return f"<h1>OAuth Callback Error</h1><p>{str(e)}</p><pre>{traceback.format_exc()}</pre>", 500
     
     # Get user info
     from google.oauth2 import id_token
