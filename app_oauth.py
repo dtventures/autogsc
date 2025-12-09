@@ -172,6 +172,11 @@ def index_v2():
     """Homepage Version 2 (Dark Mode / Terminal)."""
     return render_template("home_v2.html")
 
+@app.route("/privacy")
+def privacy():
+    """Privacy Policy page (required for OAuth verification)."""
+    return render_template("privacy.html")
+
 
 @app.route("/login")
 def login():
