@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - AutoGSC</title>
+    <style>
+        :root {
+            --bg: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666666;
+            --border: #e5e5e5;
+            --accent: #000000;
+            --accent-hover: #333333;
+            --surface: #ffffff;
+            --surface-hover: #fafafa;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        /* Nav */
+        nav {
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .user-email {
+            color: var(--text-secondary);
+        }
+
+        .btn-small {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-small:hover {
+            border-color: var(--text-primary);
+        }
+
+        /* Main Layout */
+        main {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Site Selection */
+        .page-header {
+            margin-bottom: 2rem;
+        }
+
+        .page-header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-header p {
+            color: var(--text-secondary);
+        }
+
+        .site-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .site-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .site-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border-color: var(--accent);
+        }
+
+        .site-preview {
+            height: 140px;
+            background: #f5f5f5;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .site-content {
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .site-header-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .site-favicon {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .site-title {
+            font-weight: 600;
+            font-size: 1.05rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .site-url {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .site-meta {
+            margin-top: auto;
+            display: flex;
+            gap: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border);
+            padding-top: 0.75rem;
+        }
+
+        /* Dashboard Detail View */
+        .dashboard-view {
+            display: none;
+        }
+
+        .dashboard-view.active {
+            display: block;
+        }
+
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .back-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-box {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .action-area {
+            background: #fafafa;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 0.75rem 2rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* URL List */
+        .url-list-container {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .url-list-header {
+            background: #fafafa;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+        }
+
+        .url-item {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+
+        .url-item:last-child {
+            border-bottom: none;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-badge.indexed {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-badge.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-badge.unindexed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .loading-skeletons {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .skeleton {
+            height: 100px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 0.6;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0.6;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <nav>
+        <div class="logo">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path
+                    d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                    </polyline>
+            </svg>
+            AutoGSC
+        </div>
+        <div class="user-menu">
+            <span class="user-email" id="user-display">Loading...</span>
+            <a href="/logout" class="btn-small">Sign Out</a>
+        </div>
+    </nav>
+
+    <main>
+        <!-- Site Selection View -->
+        <div id="site-selection-view">
+            <div class="page-header">
+                <h1>Your Sites</h1>
+                <p>Select a property to manage indexing.</p>
+            </div>
+            <div class="site-grid" id="site-grid">
+                <!-- Sites injected here -->
+                <div class="skeleton"></div>
+                <div class="skeleton"></div>
+                <div class="skeleton"></div>
+            </div>
+        </div>
+
+        <!-- Single Site Dashboard View -->
+        <div id="dashboard-view" class="dashboard-view">
+            <div class="detail-header">
+                <div>
+                    <div class="back-btn" onclick="showSiteSelection()">
+                        ← Back to Sites
+                    </div>
+                    <h1 id="current-site-title">Site Dashboard</h1>
+                    <div id="current-site-url" style="color: var(--text-secondary); font-size: 0.9rem;"></div>
+                </div>
+                <button class="btn-small" onclick="showSiteSelection()">Switch Site</button>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-label">Indexed</div>
+                    <div class="stat-value" id="stat-indexed" style="color: var(--success);">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Pending</div>
+                    <div class="stat-value" id="stat-pending" style="color: var(--warning);">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Issues</div>
+                    <div class="stat-value" id="stat-unindexed" style="color: var(--error);">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Quota Used</div>
+                    <div class="stat-value" id="stat-quota">-</div>
+                </div>
+            </div>
+
+            <div class="action-area">
+                <button class="btn-primary" id="run-btn" onclick="runScan()">
+                    <span>⚡️ Scan & Auto-Index</span>
+                </button>
+                <p style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem;" id="status-msg">
+                    Checks sitemap for new pages and submits them instantly.
+                </p>
+            </div>
+
+            <div class="url-list-container">
+                <div class="url-list-header">Recent Pages</div>
+                <div id="url-list">
+                    <div class="url-item" style="color: var(--text-secondary); justify-content: center;">
+                        No scan results yet.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentSiteId = null;
+
+        async function init() {
+            const userRes = await fetch('/api/user');
+            const userData = await userRes.json();
+            if (userData.logged_in) {
+                document.getElementById('user-display').textContent = userData.email;
+            }
+            loadSites();
+        }
+
+        function cleanUrl(url) {
+            return url.replace('sc-domain:', '').replace(/\/$/, '');
+        }
+
+        async function loadSites() {
+            const grid = document.getElementById('site-grid');
+
+            try {
+                const res = await fetch('/api/gsc/sites');
+                const sites = await res.json();
+
+                if (sites.error || sites.length === 0) {
+                    grid.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-secondary)">No sites found. Ensure you have Search Console properties.</div>';
+                    return;
+                }
+
+                // Render Skeletons first? Already there.
+
+                // Process sites in parallel for metadata
+                const sitePromises = sites.map(async (site) => {
+                    const rawUrl = site.siteUrl;
+                    const clean = cleanUrl(rawUrl);
+                    const formattedUrl = rawUrl.startsWith('sc-domain:') ? `https://${clean}` : rawUrl;
+
+                    // Fetch metadata
+                    let meta = { title: clean, favicon: null, image: null };
+                    try {
+                        const metaRes = await fetch('/api/metadata', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ url: formattedUrl })
+                        });
+                        const metaData = await metaRes.json();
+                        if (!metaData.error) {
+                            meta = metaData;
+                            if (!meta.title) meta.title = clean;
+                        }
+                    } catch (e) { console.error('Meta fetch failed', e); }
+
+                    return { ...site, ...meta, displayUrl: formattedUrl };
+                });
+
+                const enrichedSites = await Promise.all(sitePromises);
+
+                grid.innerHTML = enrichedSites.map(site => `
+                    <div class="site-card" onclick="selectSite('${site.siteUrl}', '${site.title}')">
+                        <div class="site-preview" style="background-image: url('${site.image || ''}'); background-color: ${site.image ? 'transparent' : '#f5f5f5'}">
+                            ${!site.image ? '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ccc;font-size:2rem;">Generative UI</div>' : ''}
+                        </div>
+                        <div class="site-content">
+                            <div class="site-header-row">
+                                ${site.favicon ? `<img src="${site.favicon}" class="site-favicon">` : '<span style="font-size:1.2rem">🌐</span>'}
+                                <div class="site-title">${site.title}</div>
+                            </div>
+                            <div class="site-url">${cleanUrl(site.siteUrl)}</div>
+                            <div class="site-meta">
+                                <span>${site.permissionLevel || 'Owner'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (e) {
+                grid.innerHTML = 'Error loading sites.';
+                console.error(e);
+            }
+        }
+
+        async function selectSite(siteUrl, siteTitle) {
+            // Logic to select site
+            document.getElementById('site-selection-view').style.display = 'none';
+            document.getElementById('dashboard-view').classList.add('active');
+
+            document.getElementById('current-site-title').textContent = siteTitle || cleanUrl(siteUrl);
+            document.getElementById('current-site-url').textContent = cleanUrl(siteUrl);
+
+            // Determine sitemap URL
+            let sitemapUrl = siteUrl;
+            if (siteUrl.startsWith('sc-domain:')) {
+                sitemapUrl = 'https://' + siteUrl.replace('sc-domain:', '') + '/sitemap.xml';
+            } else {
+                sitemapUrl = siteUrl.replace(/\/$/, '') + '/sitemap.xml';
+            }
+
+            // Register site
+            const res = await fetch('/api/sites/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ site_url: siteUrl, sitemap_url: sitemapUrl })
+            });
+            const data = await res.json();
+            currentSiteId = data.site_id;
+
+            loadStats();
+        }
+
+        function showSiteSelection() {
+            document.getElementById('dashboard-view').classList.remove('active');
+            document.getElementById('site-selection-view').style.display = 'block';
+        }
+
+        async function loadStats() {
+            if (!currentSiteId) return;
+            const res = await fetch(`/api/sites/${currentSiteId}/stats`);
+            const stats = await res.json();
+
+            document.getElementById('stat-indexed').textContent = stats.indexed || 0;
+            document.getElementById('stat-pending').textContent = stats.pending || 0;
+            document.getElementById('stat-unindexed').textContent = stats.unindexed || 0;
+            document.getElementById('stat-quota').textContent = `${stats.today_submissions}/${stats.today_limit}`;
+        }
+
+        async function runScan() {
+            const btn = document.getElementById('run-btn');
+            const msg = document.getElementById('status-msg');
+
+            btn.disabled = true;
+            btn.innerHTML = 'Scan in progress...';
+            msg.textContent = 'Analyzing sitemap and checking indexing status...';
+
+            try {
+                const scanRes = await fetch(`/api/sites/${currentSiteId}/scan`, { method: 'POST' });
+                const scanData = await scanRes.json();
+
+                if (scanData.error) throw new Error(scanData.error);
+
+                // Populate List
+                const list = document.getElementById('url-list');
+                list.innerHTML = scanData.urls.slice(0, 50).map(u => `
+                    <div class="url-item">
+                        <span style="font-family:monospace; font-size:0.85rem; max-width:70%; overflow:hidden; text-overflow:ellipsis;">${u.url}</span>
+                        <span class="status-badge ${u.indexed ? 'indexed' : 'unindexed'}">${u.indexed ? 'Indexed' : 'Not Indexed'}</span>
+                    </div>
+                `).join('');
+
+                // Submit unindexed
+                const unindexed = scanData.urls.filter(u => !u.indexed).map(u => u.url);
+                if (unindexed.length > 0) {
+                    msg.textContent = `Found ${unindexed.length} unindexed pages. Submitting...`;
+                    const submitRes = await fetch(`/api/sites/${currentSiteId}/submit`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ urls: unindexed })
+                    });
+                    const submitData = await submitRes.json();
+                    msg.textContent = `Success! Submitted ${submitData.submitted} pages to Google.`;
+                } else {
+                    msg.textContent = 'All pages are already indexed.';
+                }
+
+                loadStats();
+
+            } catch (e) {
+                msg.textContent = 'Error: ' + e.message;
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '<span>⚡️ Scan & Auto-Index</span>';
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

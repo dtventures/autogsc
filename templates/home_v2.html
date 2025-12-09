@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoGSC - Instant Indexing</title>
+    <!-- Modern Font Stack -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #050505;
+            --surface: #111111;
+            --surface-hover: #1a1a1a;
+            --border: #333;
+            --text-main: #ededed;
+            --text-muted: #888;
+            --accent: #00ff94;
+            /* Neon Green */
+            --accent-glow: rgba(0, 255, 148, 0.4);
+            --font-ui: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        :root[data-theme="light"] {
+            --bg: #ffffff;
+            --surface: #f4f4f5;
+            --surface-hover: #e4e4e7;
+            --border: #e4e4e7;
+            --text-main: #18181b;
+            --text-muted: #52525b;
+            --accent: #16a34a;
+            /* Darker Green for light mode */
+            --accent-glow: rgba(22, 163, 74, 0.2);
+            --text-gradient: linear-gradient(90deg, #111, #555);
+            --btn-text: #fff;
+        }
+
+        :root {
+            /* ... default dark ... */
+            --text-gradient: linear-gradient(90deg, #fff, #999);
+            --btn-text: #000;
+        }
+
+        /* ... existing styles ... */
+
+        [data-theme="light"] .terminal-window {
+            background: #fff;
+            border-color: #e4e4e7;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+        }
+
+        /* ... */
+
+        [data-theme="light"] .btn-neon {
+            color: #fff;
+        }
+
+        [data-theme="light"] .btn-neon svg path {
+            fill: #fff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: var(--font-ui);
+            line-height: 1.5;
+            overflow-x: hidden;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Light Mode Specifics */
+        [data-theme="light"] .terminal-window {
+            background: #fff;
+            border-color: #e4e4e7;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="light"] .terminal-header {
+            background: #f4f4f5;
+            border-color: #e4e4e7;
+        }
+
+        [data-theme="light"] .terminal-body {
+            color: #333;
+        }
+
+        [data-theme="light"] .prompt {
+            color: #a1a1aa;
+        }
+
+        [data-theme="light"] .cmd {
+            color: #16a34a;
+        }
+
+        [data-theme="light"] .path {
+            color: #2563eb;
+        }
+
+        [data-theme="light"] .btn-neon {
+            color: #fff;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        /* Grid Background Effect */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image:
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 50px 50px;
+            background-position: center top;
+            opacity: 0.1;
+            z-index: -1;
+            mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+        }
+
+        /* Nav */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo span {
+            color: var(--accent);
+            text-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .nav-links a {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-main);
+        }
+
+        .btn-theme-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            padding: 0.5rem;
+            display: flex;
+            align-items: center;
+            transition: color 0.2s;
+        }
+
+        .btn-theme-toggle:hover {
+            color: var(--text-main);
+        }
+
+        .nav-links .btn-login {
+            border: 1px solid var(--border);
+            padding: 0.5rem 1.2rem;
+            border-radius: 6px;
+            background: var(--surface);
+            color: var(--text-main);
+        }
+
+        .nav-links .btn-login:hover {
+            border-color: var(--text-muted);
+            background: var(--surface-hover);
+        }
+
+        /* Hero */
+        .hero {
+            max-width: 1200px;
+            margin: 6rem auto 4rem;
+            padding: 0 2rem;
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: -0.04em;
+            margin-bottom: 1.5rem;
+        }
+
+        h1 span {
+            color: transparent;
+            -webkit-background-clip: text;
+            background-clip: text;
+            background-image: var(--text-gradient);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 2.5rem;
+            max-width: 500px;
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn-neon {
+            background: var(--accent);
+            color: #000;
+            font-weight: 600;
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            box-shadow: 0 0 20px rgba(0, 255, 148, 0.2);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-neon:hover {
+            box-shadow: 0 0 30px rgba(0, 255, 148, 0.4);
+            transform: translateY(-2px);
+        }
+
+        /* TERMINAL COMPONENT */
+        .terminal-window {
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            overflow: hidden;
+            height: 400px;
+            position: relative;
+        }
+
+        .terminal-header {
+            background: #111;
+            border-bottom: 1px solid #333;
+            padding: 0.75rem 1rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .bg-control {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            opacity: 0.5;
+        }
+
+        .red {
+            background: #ff5f56;
+        }
+
+        .yellow {
+            background: #ffbd2e;
+        }
+
+        .green {
+            background: #27c93f;
+        }
+
+        .terminal-body {
+            padding: 1.5rem;
+            color: #ccc;
+            height: 100%;
+        }
+
+        .line {
+            margin-bottom: 0.5rem;
+            opacity: 0;
+            /* Hidden by default for animation */
+            animation: fadeIn 0.1s forwards;
+            display: flex;
+        }
+
+        .line.active {
+            opacity: 1;
+        }
+
+        .prompt {
+            color: #888;
+            margin-right: 0.5rem;
+        }
+
+        .cmd {
+            color: var(--accent);
+        }
+
+        .success {
+            color: var(--accent);
+        }
+
+        .pending {
+            color: #fbbf24;
+        }
+
+        .path {
+            color: #60a5fa;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* BENTO GRID */
+        .bento-section {
+            max-width: 1200px;
+            margin: 6rem auto;
+            padding: 0 2rem;
+        }
+
+        .bento-header {
+            margin-bottom: 3rem;
+        }
+
+        .bento-header h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+        }
+
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: 250px 250px;
+            /* Two rows */
+            gap: 1.5rem;
+        }
+
+        .bento-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .bento-card:hover {
+            border-color: #555;
+        }
+
+        .card-large {
+            grid-column: span 2;
+        }
+
+        .card-tall {
+            grid-row: span 2;
+        }
+
+        .bento-icon {
+            font-size: 1.5rem;
+            color: var(--accent);
+            margin-bottom: 1rem;
+            display: inline-block;
+            padding: 0.5rem;
+            background: rgba(0, 255, 148, 0.1);
+            border-radius: 8px;
+        }
+
+        .bento-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+
+        .bento-card p {
+            font-size: 0.95rem;
+            color: #ccc;
+        }
+
+        /* Light Mode Overrides for Bento Cards */
+        [data-theme="light"] .bento-card h3 {
+            color: #111;
+        }
+
+        [data-theme="light"] .bento-card p {
+            color: #555;
+            /* Lighter grey as requested, but readable */
+        }
+
+        [data-theme="light"] .stat-value {
+            color: #111;
+        }
+
+        [data-theme="light"] .stat-value span {
+            color: #666 !important;
+        }
+
+        /* Product Mockup (Ported from V1) */
+        .mockup-container {
+            margin-top: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            background: #fff;
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .window-header {
+            background: #f9f9f9;
+            border-bottom: 1px solid #eee;
+            padding: 0.8rem 1rem;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .dot.red {
+            background: #ff5f56;
+            box-shadow: 0 0 0 1px #e0443e;
+        }
+
+        .dot.yellow {
+            background: #ffbd2e;
+            box-shadow: 0 0 0 1px #dea123;
+        }
+
+        .dot.green {
+            background: #27c93f;
+            box-shadow: 0 0 0 1px #1aab29;
+        }
+
+        .mockup-body {
+            display: flex;
+            height: 650px;
+            text-align: left;
+            color: #1a1a1a;
+            /* Ensure text is dark inside mockup */
+        }
+
+        .mock-sidebar {
+            width: 220px;
+            border-right: 1px solid #eee;
+            padding: 1.5rem;
+            background: #fafafa;
+        }
+
+        .mock-nav-item {
+            display: block;
+            padding: 0.5rem 0.8rem;
+            margin-bottom: 0.25rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .mock-nav-item.active {
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            color: #000;
+        }
+
+        .mock-content {
+            flex: 1;
+            padding: 2rem;
+            background: #fff;
+        }
+
+        .mock-stats {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .mock-stat-card {
+            flex: 1;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 1.25rem;
+        }
+
+        .mock-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #888;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .mock-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #111;
+        }
+
+        .mock-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .mock-table th {
+            text-align: left;
+            font-size: 0.8rem;
+            color: #888;
+            font-weight: 500;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .mock-table td {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f5f5f5;
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        .mock-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .mock-badge.success {
+            background: #ecfdf5;
+            color: #059669;
+        }
+
+        .mock-badge.pending {
+            background: #fffbeb;
+            color: #d97706;
+        }
+
+        /* How it Works - Matching Mission Control Style */
+        .how-it-works-section {
+            max-width: 1200px;
+            margin: 10rem auto;
+            padding: 0 2rem;
+        }
+
+        .how-it-works-header {
+            margin-bottom: 5rem;
+            text-align: center;
+        }
+
+        .how-it-works-header h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+        }
+
+        .steps-wrapper {
+            position: relative;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .connector-line {
+            position: absolute;
+            top: 70px;
+            left: 15%;
+            width: 70%;
+            height: 2px;
+            background-image: linear-gradient(to right, #e5e5e5 50%, transparent 50%);
+            background-size: 15px 100%;
+            z-index: 0;
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4rem;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .step-number {
+            font-size: 1.2rem;
+            font-weight: 700;
+            width: 40px;
+            height: 40px;
+            background: var(--surface);
+            border: 2px solid var(--text-main);
+            color: var(--text-main);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 2rem;
+        }
+
+        .step-card h3 {
+            margin-bottom: 0.5rem;
+            font-size: 1.25rem;
+            color: var(--text-main);
+        }
+
+        .step-card p {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        /* Mega Footer */
+        .mega-footer {
+            background: var(--bg);
+            border-top: 1px solid var(--border);
+            padding: 4rem 2rem 0;
+            margin-top: 0;
+            color: var(--text-main);
+        }
+
+        [data-theme="light"] .mega-footer {
+            background: #fdfdfc;
+            color: #111;
+        }
+
+        .footer-brand h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            font-family: 'Courier New', monospace;
+            color: var(--text-main);
+        }
+
+        [data-theme="light"] .footer-brand h3 {
+            color: #111;
+        }
+
+        .footer-links h4 {
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            color: var(--text-main);
+        }
+
+        [data-theme="light"] .footer-links h4 {
+            color: #111;
+        }
+
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+        }
+
+        [data-theme="light"] .footer-links a {
+            color: #111;
+        }
+
+        .footer-bottom h1 {
+            font-size: 15vw;
+            line-height: 0.8;
+            font-weight: 900;
+            margin: 0;
+            letter-spacing: -0.05em;
+            color: var(--surface-hover);
+            padding-bottom: 0;
+            transform: translateY(10%);
+        }
+
+        [data-theme="light"] .footer-bottom h1 {
+            color: #1a1a1a;
+        }
+
+        /* Stats Styling for Bento */
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 3rem;
+            font-weight: 700;
+            color: #fff;
+            margin: 1rem 0;
+            letter-spacing: -0.05em;
+        }
+
+        .stat-label {
+            color: var(--accent);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .hero {
+                grid-template-columns: 1fr;
+                margin-top: 3rem;
+            }
+
+            .hero h1 {
+                font-size: 3rem;
+            }
+
+            .bento-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto;
+            }
+
+            .card-large,
+            .card-tall {
+                grid-column: auto;
+                grid-row: auto;
+                height: 250px;
+            }
+
+            .terminal-window {
+                display: none;
+            }
+
+            /* Hide complex terminal on mobile for now */
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="bg-grid"></div>
+
+    <nav>
+        <div class="logo">
+            <span>>_</span> AutoGSC
+        </div>
+        <div class="nav-links">
+            <button class="btn-theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
+                <span id="theme-icon">
+                    <!-- Sun Icon (Default) -->
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </span>
+            </button>
+            <a href="#">Docs</a>
+            <a href="#">Pricing</a>
+            <a href="/login" class="btn-login">Login</a>
+        </div>
+    </nav>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const icon = document.getElementById('theme-icon');
+
+            if (current === 'light') {
+                html.removeAttribute('data-theme');
+                // Sun Icon
+                icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                html.setAttribute('data-theme', 'light');
+                // Moon Icon
+                icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+                localStorage.setItem('theme', 'light');
+            }
+        }
+
+        // Init theme
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+            setTimeout(() => {
+                document.getElementById('theme-icon').innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+            }, 0);
+        }
+    </script>
+
+    <div class="hero">
+        <div class="hero-content">
+            <div style="font-family: var(--font-mono); color: var(--accent); margin-bottom: 1rem; font-size: 0.9rem;">
+                $ index --all --force
+            </div>
+            <h1>
+                <span>Stop waiting.</span><br>
+                <span>Start ranking.</span>
+            </h1>
+            <p class="subtitle">
+                The indexing CLI for the modern web. Bypass the queue and push your content directly to Google's
+                specialized Indexing API.
+            </p>
+            <div class="hero-cta">
+                <a href="/login" class="btn-neon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                            fill="currentColor" />
+                        <path
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                            fill="currentColor" />
+                        <path
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.84z"
+                            fill="currentColor" />
+                        <path
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                            fill="currentColor" />
+                    </svg>
+                    Continue with Google
+                </a>
+                <span style="font-size: 0.9rem; color: #666;">(It's free)</span>
+            </div>
+        </div>
+
+        <!-- LIVE TERMINAL ANIMATION -->
+        <div class="terminal-window">
+            <div class="terminal-header">
+                <div class="bg-control red"></div>
+                <div class="bg-control yellow"></div>
+                <div class="bg-control green"></div>
+                <div style="margin-left:auto; font-size: 0.8rem; color:#666;">bash — 80x24</div>
+            </div>
+            <div class="terminal-body" id="terminal-out">
+                <!-- Lines injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <div class="bento-section">
+        <div class="bento-header">
+            <h2>Mission Control</h2>
+        </div>
+        <div class="bento-grid">
+            <!-- Box 1: Large Stat -->
+            <div class="bento-card card-tall">
+                <div class="bento-icon">⚡️</div>
+                <h3>Instant Push</h3>
+                <div class="stat-value">92<span style="font-size:1.5rem;color:#888;">%</span></div>
+                <div class="stat-label">Faster Indexing</div>
+                <p style="margin-top: 1rem;">Comparison vs standard sitemap crawling over 30 days.</p>
+                <div style="margin-top: 2rem; height: 4px; background: #333; border-radius: 2px; overflow: hidden;">
+                    <div style="width: 92%; height: 100%; background: var(--accent);"></div>
+                </div>
+            </div>
+
+            <!-- Box 2: Smart Scan -->
+            <div class="bento-card card-large">
+                <div class="bento-icon">🔍</div>
+                <h3>Smart Discovery</h3>
+                <p>We diff your sitemap against Google's index in real-time.</p>
+                <div
+                    style="display: flex; gap: 0.5rem; margin-top: 1.5rem; font-family: var(--font-mono); font-size: 0.8rem;">
+                    <div
+                        style="background:var(--surface-hover); padding: 0.5rem; border-radius: 4px; color: var(--accent);">
+                        + /blog/new-feature</div>
+                    <div
+                        style="background:var(--surface-hover); padding: 0.5rem; border-radius: 4px; color: var(--accent);">
+                        + /pricing/v2</div>
+                    <div style="background:var(--surface-hover); padding: 0.5rem; border-radius: 4px; color: #666;">
+                        ...scanning</div>
+                </div>
+            </div>
+
+            <!-- Box 3: Agency Ready -->
+            <div class="bento-card">
+                <div class="bento-icon">🏢</div>
+                <h3>Agency Scale</h3>
+                <p>Manage 100+ client sites from one CLI dashboard.</p>
+            </div>
+
+            <!-- Box 4: Programmatic -->
+            <div class="bento-card">
+                <div class="bento-icon">🤖</div>
+                <h3>API First</h3>
+                <p>Designed for programmatic SEO and Next.js ISR.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Mockup Section -->
+    <div style="max-width: 1400px; margin: 0 auto 6rem; padding: 0 2rem;">
+        <!-- CSS Product Mockup -->
+        <div class="mockup-container">
+            <div class="window-header">
+                <div class="dot red"></div>
+                <div class="dot yellow"></div>
+                <div class="dot green"></div>
+            </div>
+            <div class="mockup-body">
+                <div class="mock-sidebar">
+                    <div class="mock-nav-item active">Dashboard</div>
+                    <div class="mock-nav-item">Your Sites</div>
+                    <div class="mock-nav-item">Settings</div>
+                </div>
+                <div class="mock-content">
+                    <h3 style="margin-bottom: 2rem; font-size: 1.2rem; color: #000;">Overview</h3>
+                    <div class="mock-stats">
+                        <div class="mock-stat-card">
+                            <div class="mock-label">Indexed URLs</div>
+                            <div class="mock-value">1,248</div>
+                        </div>
+                        <div class="mock-stat-card">
+                            <div class="mock-label">Pending</div>
+                            <div class="mock-value" style="color: #d97706">12</div>
+                        </div>
+                        <div class="mock-stat-card">
+                            <div class="mock-label">Quota Used</div>
+                            <div class="mock-value" style="color: #666">45/200</div>
+                        </div>
+                    </div>
+
+                    <h4 style="margin-bottom: 1rem; font-size: 0.95rem; color: #000;">Recent Submissions</h4>
+                    <table class="mock-table">
+                        <thead>
+                            <tr>
+                                <th>URL</th>
+                                <th>Status</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>vibe-fund.com/portfolio</td>
+                                <td><span class="mock-badge success">Indexed</span></td>
+                                <td>2 mins ago</td>
+                            </tr>
+                            <tr>
+                                <td>vibe-fund.com/team</td>
+                                <td><span class="mock-badge success">Indexed</span></td>
+                                <td>5 mins ago</td>
+                            </tr>
+                            <tr>
+                                <td>vibe-fund.com/blog/announce</td>
+                                <td><span class="mock-badge pending">Pending</span></td>
+                                <td>12 mins ago</td>
+                            </tr>
+                            <tr>
+                                <td>vibe-fund.com/contact</td>
+                                <td><span class="mock-badge success">Indexed</span></td>
+                                <td>1 hour ago</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- How It Works Section (Matching Mission Control Style) -->
+    <div class="how-it-works-section">
+        <div class="how-it-works-header">
+            <h2>How It Works</h2>
+        </div>
+        <div class="steps-wrapper">
+            <div class="connector-line"></div>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <h3>Connect Site</h3>
+                    <p>Login with Google and select a Search Console property you want to manage.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <h3>Auto-Scan</h3>
+                    <p>We detect unindexed pages in your sitemap that Google missed.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <h3>Rank Higher</h3>
+                    <p>We submit pages to the Indexing API. Watch them turn green in minutes.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mega Footer (Graza Style) -->
+    <footer class="mega-footer">
+        <div class="footer-top"
+            style="display: flex; justify-content: space-between; max-width: 1200px; margin: 0 auto 6rem; flex-wrap: wrap; gap: 4rem;">
+
+            <!-- Newsletter / Brand -->
+            <div class="footer-brand" style="flex: 1; min-width: 300px;">
+                <h3>Friends let friends<br>index faster.</h3>
+                <div class="newsletter"
+                    style="display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; max-width: 320px; background: var(--surface);">
+                    <input type="email" placeholder="Your Email"
+                        style="border: none; padding: 1rem; flex: 1; outline: none; background: transparent; color: var(--text-main);">
+                    <button
+                        style="background: #dcfce7; border: none; border-left: 1px solid var(--border); padding: 0 1.5rem; font-weight: 700; cursor: pointer; color: #166534;">→</button>
+                </div>
+            </div>
+
+            <!-- Links -->
+            <div class="footer-links"
+                style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4rem; font-family: 'Courier New', monospace;">
+                <div>
+                    <h4>Shop</h4>
+                    <ul style="list-style: none;">
+                        <li style="margin-bottom: 0.75rem;"><a href="#">Pricing</a></li>
+                        <li style="margin-bottom: 0.75rem;"><a href="#">Enterprise</a></li>
+                        <li style="margin-bottom: 0.75rem;"><a href="#">Login</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>About</h4>
+                    <ul style="list-style: none;">
+                        <li style="margin-bottom: 0.75rem;"><a href="#">Manifesto</a></li>
+                        <li style="margin-bottom: 0.75rem;"><a href="#">Blog</a></li>
+                        <li style="margin-bottom: 0.75rem;"><a href="#">Contact</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>Social</h4>
+                    <ul style="list-style: none;">
+                        <li style="margin-bottom: 0.75rem;"><a href="#">Twitter</a></li>
+                        <li style="margin-bottom: 0.75rem;"><a href="#">LinkedIn</a></li>
+                        <li style="margin-bottom: 0.75rem;"><a href="#">GitHub</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mega Typography -->
+        <div class="footer-bottom"
+            style="border-top: 1px dashed var(--border); padding-top: 1rem; text-align: center; overflow: hidden;">
+            <h1>AUTOGSC</h1>
+            <div
+                style="display: flex; justify-content: space-between; font-family: 'Courier New', monospace; font-size: 0.8rem; margin-bottom: 2rem; padding: 0 2rem; color: var(--text-muted);">
+                <span>© 2025 AutoGSC Inc.</span>
+                <span>Privacy Policy • Terms</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Script for Terminal Animation -->
+    <script>
+        const terminal = document.getElementById('terminal-out');
+        const lines = [
+            { text: "autogsc connect --key=secret.json", type: "cmd", delay: 500 },
+            { text: "Authenticating with Google Cloud...", type: "text", delay: 800 },
+            { text: "✓ Connected to 'Vibe Fund' (Search Console)", type: "success", delay: 400 },
+            { text: "autogsc sync --sitemap=https://vibe-fund.com/sitemap.xml", type: "cmd", delay: 1200 },
+            { text: "Finding unindexed pages...", type: "text", delay: 600 },
+            { text: "Found 3 new URLs:", type: "text", delay: 300 },
+            { text: "→ /portfolio/daybreak [PENDING]", type: "pending", delay: 1000 },
+            { text: "→ /team/jake-paul [PENDING]", type: "pending", delay: 400 },
+            { text: "→ /blog/series-a [PENDING]", type: "pending", delay: 400 },
+            { text: "Pushing to Indexing API...", type: "text", delay: 800 },
+            { text: "✓ /portfolio/daybreak [SUBMITTED]", type: "success", delay: 200 },
+            { text: "✓ /team/jake-paul [SUBMITTED]", type: "success", delay: 200 },
+            { text: "✓ /blog/series-a [SUBMITTED]", type: "success", delay: 200 },
+            { text: "Done in 2.4s. Waiting for Google bot...", type: "text", delay: 2000 },
+        ];
+
+        let lineIndex = 0;
+
+        function typeLine() {
+            if (lineIndex >= lines.length) {
+                // Reset loop after pause
+                setTimeout(() => {
+                    terminal.innerHTML = '';
+                    lineIndex = 0;
+                    typeLine();
+                }, 5000);
+                return;
+            }
+
+            const line = lines[lineIndex];
+            const div = document.createElement('div');
+            div.className = 'line';
+
+            if (line.type === 'cmd') {
+                div.innerHTML = '<span class="prompt">$</span> ' + line.text;
+            } else if (line.type === 'success') {
+                div.innerHTML = '<span class="success">' + line.text + '</span>';
+            } else if (line.type === 'pending') {
+                div.innerHTML = '<span class="path">' + line.text + '</span>';
+            } else {
+                div.textContent = line.text;
+            }
+
+            terminal.appendChild(div);
+            // Trigger reflow for animation
+            setTimeout(() => div.classList.add('active'), 10);
+            terminal.scrollTop = terminal.scrollHeight;
+
+            lineIndex++;
+            setTimeout(typeLine, line.delay);
+        }
+
+        // Start animation
+        setTimeout(typeLine, 500);
+    </script>
+</body>
+
+</html>

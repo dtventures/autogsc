@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoGSC Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        h1 span {
+            font-size: 1.5rem;
+        }
+
+        .site-info {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .stat-card.indexed .stat-value {
+            color: #4ade80;
+        }
+
+        .stat-card.pending .stat-value {
+            color: #f59e0b;
+        }
+
+        .stat-card.unindexed .stat-value {
+            color: #f87171;
+        }
+
+        .stat-card.submitted .stat-value {
+            color: #60a5fa;
+        }
+
+        .stat-card.quota .stat-value {
+            color: #fbbf24;
+        }
+
+        .action-section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .run-button {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            padding: 1rem 3rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .run-button:hover:not(:disabled) {
+            transform: scale(1.02);
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.4);
+        }
+
+        .run-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .run-button.running {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        .status-text {
+            margin-top: 1rem;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.95rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 1rem;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar.active {
+            display: block;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #60a5fa);
+            width: 0%;
+            animation: progress 2s ease-in-out infinite;
+        }
+
+        @keyframes progress {
+            0% {
+                width: 0%;
+                margin-left: 0%;
+            }
+
+            50% {
+                width: 30%;
+                margin-left: 35%;
+            }
+
+            100% {
+                width: 0%;
+                margin-left: 100%;
+            }
+        }
+
+        .history-section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 1.5rem;
+        }
+
+        .history-section h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .history-list {
+            list-style: none;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.9rem;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-url {
+            color: rgba(255, 255, 255, 0.8);
+            max-width: 60%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .history-meta {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .history-time {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.8rem;
+        }
+
+        .history-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .history-status.success {
+            background: rgba(74, 222, 128, 0.2);
+            color: #4ade80;
+        }
+
+        .history-status.error {
+            background: rgba(248, 113, 113, 0.2);
+            color: #f87171;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .log-output {
+            margin-top: 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.7);
+            display: none;
+        }
+
+        .log-output.active {
+            display: block;
+        }
+
+        .log-line {
+            margin-bottom: 0.25rem;
+        }
+
+        .log-line.success {
+            color: #4ade80;
+        }
+
+        .log-line.error {
+            color: #f87171;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1><span>🚀</span> AutoGSC Dashboard</h1>
+            <div class="site-info" id="site-info">Loading...</div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total URLs</div>
+                <div class="stat-value" id="total-urls">-</div>
+            </div>
+            <div class="stat-card indexed">
+                <div class="stat-label">Indexed ✓</div>
+                <div class="stat-value" id="indexed">-</div>
+            </div>
+            <div class="stat-card pending">
+                <div class="stat-label">Pending ⏳</div>
+                <div class="stat-value" id="pending">-</div>
+            </div>
+            <div class="stat-card unindexed">
+                <div class="stat-label">Need Indexing</div>
+                <div class="stat-value" id="unindexed">-</div>
+            </div>
+            <div class="stat-card quota">
+                <div class="stat-label">Today's Submissions</div>
+                <div class="stat-value" id="quota">-</div>
+            </div>
+        </div>
+
+        <div class="action-section">
+            <button class="run-button" id="run-button" onclick="startJob()">
+                <span>▶</span> Run Scan & Submit
+            </button>
+            <div class="status-text" id="status-text">Click to scan your sitemap and submit unindexed pages</div>
+            <div class="progress-bar" id="progress-bar">
+                <div class="progress-bar-fill"></div>
+            </div>
+            <div class="log-output" id="log-output"></div>
+        </div>
+
+        <div class="history-section">
+            <h2>📋 Recent Submissions</h2>
+            <ul class="history-list" id="history-list">
+                <li class="empty-state">No submissions yet</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let pollInterval = null;
+        
+        async function fetchStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                document.getElementById('site-info').textContent = data.site_url;
+                document.getElementById('total-urls').textContent = data.total_urls || 0;
+                document.getElementById('indexed').textContent = data.indexed || 0;
+                document.getElementById('pending').textContent = data.pending || 0;
+                document.getElementById('unindexed').textContent = data.unindexed || 0;
+                document.getElementById('quota').textContent = `${data.today_submissions}/${data.today_limit}`;
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+            }
+        }
+        
+        async function fetchHistory() {
+            try {
+                const response = await fetch('/api/history');
+                const data = await response.json();
+                
+                const list = document.getElementById('history-list');
+                
+                if (data.length === 0) {
+                    list.innerHTML = '<li class="empty-state">No submissions yet</li>';
+                    return;
+                }
+                
+                list.innerHTML = data.map(item => `
+                    <li class="history-item">
+                        <span class="history-url" title="${item.url}">${item.url}</span>
+                        <div class="history-meta">
+                            <span class="history-time">${formatTime(item.time)}</span>
+                            <span class="history-status ${item.result === 'success' ? 'success' : 'error'}">
+                                ${item.result === 'success' ? '✓ Submitted' : '✗ Failed'}
+                            </span>
+                        </div>
+                    </li>
+                `).join('');
+            } catch (error) {
+                console.error('Error fetching history:', error);
+            }
+        }
+        
+        function formatTime(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            return date.toLocaleString();
+        }
+        
+        async function startJob() {
+            const button = document.getElementById('run-button');
+            
+            try {
+                const response = await fetch('/api/job/start', { method: 'POST' });
+                
+                if (response.ok) {
+                    button.disabled = true;
+                    button.classList.add('running');
+                    button.innerHTML = '<span>⏳</span> Running...';
+                    document.getElementById('progress-bar').classList.add('active');
+                    document.getElementById('log-output').classList.add('active');
+                    
+                    // Start polling for status
+                    pollJobStatus();
+                }
+            } catch (error) {
+                console.error('Error starting job:', error);
+            }
+        }
+        
+        async function pollJobStatus() {
+            try {
+                const response = await fetch('/api/job/status');
+                const data = await response.json();
+                
+                document.getElementById('status-text').textContent = data.status || 'Running...';
+                
+                // Update log
+                const logOutput = document.getElementById('log-output');
+                logOutput.innerHTML = data.log.slice(-15).map(line => {
+                    let cls = '';
+                    if (line.includes('✓')) cls = 'success';
+                    if (line.includes('✗') || line.includes('Error')) cls = 'error';
+                    return `<div class="log-line ${cls}">${line}</div>`;
+                }).join('');
+                logOutput.scrollTop = logOutput.scrollHeight;
+                
+                if (data.running) {
+                    setTimeout(pollJobStatus, 1000);
+                } else {
+                    // Job complete
+                    const button = document.getElementById('run-button');
+                    button.disabled = false;
+                    button.classList.remove('running');
+                    button.innerHTML = '<span>▶</span> Run Scan & Submit';
+                    document.getElementById('progress-bar').classList.remove('active');
+                    
+                    // Refresh stats and history
+                    fetchStats();
+                    fetchHistory();
+                }
+            } catch (error) {
+                console.error('Error polling status:', error);
+            }
+        }
+        
+        // Initial load
+        fetchStats();
+        fetchHistory();
+        
+        // Refresh stats every 30 seconds
+        setInterval(fetchStats, 30000);
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,20 @@
+# Copy these into Render's Environment Variables section
+# Go to: Your Service → Environment → Add Environment Variable
+
+# Variable Name: GOOGLE_CLIENT_SECRET
+# Variable Value (copy entire JSON from your client_secret.json file):
+# Paste your entire client_secret.json content here as a single-line JSON string
+# Example format: {"web":{"client_id":"YOUR_CLIENT_ID.apps.googleusercontent.com",...}}
+
+# Variable Name: SECRET_KEY
+# Variable Value:
+245c0f9ac1453af4ea6244b681b01199d79b900e8fff41f6682c8ab11d351b11
+
+# Variable Name: OAUTHLIB_INSECURE_TRANSPORT
+# Variable Value:
+0
+
+# Variable Name: PORT
+# Variable Value:
+10000
+

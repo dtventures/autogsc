@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoGSC Dashboard</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #050505;
+            /* Matching V2 Dark */
+            --sidebar-bg: #111111;
+            --border: #333;
+            --text-main: #ededed;
+            --text-muted: #888;
+            --accent: #00ff94;
+            --surface: #111111;
+            --surface-hover: #1a1a1a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 250px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .logo span {
+            color: var(--accent);
+        }
+
+        .nav-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .nav-label:first-of-type {
+            margin-top: 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .nav-item:hover {
+            background: var(--surface-hover);
+            color: var(--text-main);
+        }
+
+        .nav-item.active {
+            background: var(--surface-hover);
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        .user-section {
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            background: #333;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .user-info {
+            font-size: 0.85rem;
+            overflow: hidden;
+        }
+
+        .user-email {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-muted);
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg);
+        }
+
+        .top-bar {
+            height: 64px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+        }
+
+        .site-selector {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--surface);
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .site-selector:hover {
+            border-color: #666;
+        }
+
+        .content-scroll {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .stat-card.indexed .stat-value {
+            color: var(--accent);
+        }
+
+        .stat-card.pending .stat-value {
+            color: #f59e0b;
+        }
+
+        .stat-card.unindexed .stat-value {
+            color: #f87171;
+        }
+
+        /* Action Bar */
+        .action-bar {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .btn-run {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: transform 0.1s;
+        }
+
+        .btn-run:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .btn-run:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* URL List */
+        .url-list-container {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .url-header {
+            background: var(--surface);
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+        }
+
+        .url-item {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            background: var(--bg);
+        }
+
+        .url-item:last-child {
+            border-bottom: none;
+        }
+
+        .status-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: #333;
+        }
+
+        .status-badge.indexed {
+            background: rgba(0, 255, 148, 0.1);
+            color: var(--accent);
+        }
+
+        .status-badge.unindexed {
+            background: rgba(248, 113, 113, 0.1);
+            color: #f87171;
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal.hidden {
+            display: none;
+        }
+
+        .modal-content {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 2rem;
+            border-radius: 12px;
+            width: 500px;
+            max-width: 90%;
+        }
+
+        .site-list-item {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+
+        .site-list-item:hover {
+            background: var(--surface-hover);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">
+            <span>>_</span> AutoGSC
+        </div>
+
+        <div class="nav-label">Platform</div>
+        <a href="#" class="nav-item active">Overview</a>
+        <a href="#" class="nav-item">Pages</a>
+        <a href="#" class="nav-item">Sitemaps</a>
+
+        <div class="nav-label">Configuration</div>
+        <a href="#" class="nav-item">Settings</a>
+        <a href="#" class="nav-item">API Keys</a>
+
+        <div class="user-section">
+            <div class="user-avatar" id="user-initial">U</div>
+            <div class="user-info">
+                <div style="font-weight: 600;">Account</div>
+                <div class="user-email" id="user-email">loading...</div>
+            </div>
+            <a href="/logout" style="margin-left:auto; color: var(--text-muted); font-size: 0.8rem;">Log out</a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="top-bar">
+            <!-- Site Selector Trigger -->
+            <div class="site-selector" onclick="document.getElementById('site-modal').classList.remove('hidden')">
+                <span id="current-site-name">Select Site...</span>
+                <span style="color:#666;">▼</span>
+            </div>
+            <div style="font-size: 0.9rem; color: #666;">
+                Status: <span style="color:var(--accent);">● Connected</span>
+            </div>
+        </div>
+
+        <div class="content-scroll" id="dashboard-content" style="display:none;">
+            <h2>Overview</h2>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total URLs</div>
+                    <div class="stat-value" id="total-urls">-</div>
+                </div>
+                <div class="stat-card indexed">
+                    <div class="stat-label">Indexed</div>
+                    <div class="stat-value" id="indexed">-</div>
+                </div>
+                <div class="stat-card unindexed">
+                    <div class="stat-label">Need Indexing</div>
+                    <div class="stat-value" id="unindexed">-</div>
+                </div>
+                <div class="stat-card pending">
+                    <div class="stat-label">Daily Quota</div>
+                    <div class="stat-value" id="quota">-</div>
+                </div>
+            </div>
+
+            <div class="action-bar">
+                <div>
+                    <h3 style="font-size:1.1rem; margin-bottom:0.25rem;">Quick Scan</h3>
+                    <p id="status-text" style="color: #666; font-size: 0.9rem;">Check sitemap and submit unindexed URLs.
+                    </p>
+                </div>
+                <button class="btn-run" id="run-button" onclick="runScan()">▶ Run Scan</button>
+            </div>
+
+            <div class="url-list-container">
+                <div class="url-header">Recent Activity</div>
+                <div id="url-list">
+                    <div class="url-item" style="color:#666; justify-content:center;">Run a scan to see URLs</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal" id="site-modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom:1rem;">Select Property</h2>
+            <div id="site-list">Loading...</div>
+            <div style="margin-top:1rem; text-align:right;">
+                <button onclick="document.getElementById('site-modal').classList.add('hidden')"
+                    style="padding:0.5rem 1rem; background:none; border:1px solid #333; color:#fff; border-radius:4px; cursor:pointer;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // JS Logic (Copied and adapted from previous version)
+        let selectedSite = null;
+
+        async function init() {
+            const userRes = await fetch('/api/user');
+            const userData = await userRes.json();
+            if (userData.logged_in) {
+                document.getElementById('user-email').textContent = userData.user.email;
+                document.getElementById('user-initial').textContent = userData.user.email[0].toUpperCase();
+            }
+            await loadSites();
+        }
+
+        async function loadSites() {
+            const list = document.getElementById('site-list');
+            try {
+                const res = await fetch('/api/sites');
+                const sites = await res.json();
+
+                if (sites.length === 0) list.innerHTML = '<div style="padding:1rem; color:#888;">No sites found.</div>';
+                else {
+                    list.innerHTML = sites.map(site => `
+                        <div class="site-list-item" onclick="selectSite('${site.siteUrl}')">
+                            <div style="font-weight:500;">${site.siteUrl}</div>
+                            <div style="font-size:0.8rem; color:#666;">${site.permissionLevel || 'Owner'}</div>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {
+                list.innerHTML = 'Error loading sites.';
+            }
+        }
+
+        async function selectSite(siteUrl) {
+            document.getElementById('current-site-name').textContent = siteUrl;
+            document.getElementById('site-modal').classList.add('hidden');
+            document.getElementById('dashboard-content').style.display = 'block';
+
+            // Determine sitemap
+            let sitemapUrl = siteUrl.startsWith('sc-domain:')
+                ? 'https://' + siteUrl.replace('sc-domain:', '') + '/sitemap.xml'
+                : siteUrl.replace(/\/$/, '') + '/sitemap.xml';
+
+            await fetch('/api/site/select', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ siteUrl, sitemapUrl })
+            });
+
+            loadStats();
+        }
+
+        async function loadStats() {
+            const res = await fetch('/api/stats');
+            const data = await res.json();
+            document.getElementById('total-urls').textContent = data.total_urls || 0;
+            document.getElementById('indexed').textContent = data.indexed || 0;
+            document.getElementById('unindexed').textContent = data.unindexed || 0;
+            document.getElementById('quota').textContent = `${data.today_submissions}/200`;
+        }
+
+        async function runScan() {
+            const btn = document.getElementById('run-button');
+            const status = document.getElementById('status-text');
+            btn.disabled = true;
+            status.textContent = 'Scanning sitemap...';
+
+            try {
+                const res = await fetch('/api/scan', { method: 'POST' });
+                const data = await res.json();
+
+                if (data.error) throw new Error(data.error);
+
+                // Update stats
+                document.getElementById('total-urls').textContent = data.total;
+                document.getElementById('indexed').textContent = data.indexed;
+                document.getElementById('unindexed').textContent = data.not_indexed;
+
+                // List
+                const list = document.getElementById('url-list');
+                list.innerHTML = data.urls.map(u => `
+                    <div class="url-item">
+                        <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%;" title="${u.url}">${u.url}</div>
+                        <div class="status-badge ${u.indexed ? 'indexed' : 'unindexed'}">${u.indexed ? 'INDEXED' : 'MISSING'}</div>
+                    </div>
+                `).join('');
+
+                // Submit logic would go here (simplified for layout demo)
+                status.textContent = 'Scan complete.';
+
+            } catch (e) {
+                status.textContent = 'Error: ' + e.message;
+            }
+            btn.disabled = false;
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
