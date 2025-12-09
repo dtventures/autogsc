@@ -77,17 +77,31 @@ def get_flow():
     
     if CLIENT_CONFIG:
         # Use config from environment variable
-        return Flow.from_client_secrets(
-            CLIENT_CONFIG,
-            scopes=SCOPES,
-            redirect_uri=redirect_uri
-        )
+        try:
+            # Validate CLIENT_CONFIG structure
+            if not isinstance(CLIENT_CONFIG, dict):
+                raise ValueError(f"CLIENT_CONFIG must be a dict, got {type(CLIENT_CONFIG)}")
+            if 'web' not in CLIENT_CONFIG:
+                raise ValueError("CLIENT_CONFIG missing 'web' key. Expected format: {'web': {...}}")
+            if 'client_id' not in CLIENT_CONFIG['web']:
+                raise ValueError("CLIENT_CONFIG missing 'client_id' in 'web' key")
+            if 'client_secret' not in CLIENT_CONFIG['web']:
+                raise ValueError("CLIENT_CONFIG missing 'client_secret' in 'web' key")
+            
+            return Flow.from_client_secrets(
+                CLIENT_CONFIG,
+                scopes=SCOPES,
+                redirect_uri=redirect_uri
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to create OAuth flow from CLIENT_CONFIG: {str(e)}") from e
     else:
         # Use config from file (local development)
-        if not os.path.exists(CLIENT_SECRETS_FILE):
+        if not CLIENT_SECRETS_FILE or not os.path.exists(CLIENT_SECRETS_FILE):
             raise FileNotFoundError(
                 f"OAuth client secret file not found: {CLIENT_SECRETS_FILE}\n"
-                f"Please set GOOGLE_CLIENT_SECRET environment variable or create client_secret.json"
+                f"Please set GOOGLE_CLIENT_SECRET environment variable in Render or create client_secret.json for local development.\n"
+                f"GOOGLE_CLIENT_SECRET_ENV is set: {GOOGLE_CLIENT_SECRET_ENV is not None}"
             )
         return Flow.from_client_secrets_file(
             CLIENT_SECRETS_FILE,
@@ -149,6 +163,15 @@ def index_v2():
 def login():
     """Start OAuth flow."""
     try:
+        # Log configuration status for debugging
+        import logging
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"REDIRECT_URI: {REDIRECT_URI}")
+        logger.info(f"CLIENT_CONFIG set: {CLIENT_CONFIG is not None}")
+        logger.info(f"CLIENT_SECRETS_FILE: {CLIENT_SECRETS_FILE}")
+        
         flow = get_flow()
         authorization_url, state = flow.authorization_url(
             access_type='offline',
@@ -160,8 +183,25 @@ def login():
     except Exception as e:
         import traceback
         error_msg = f"OAuth setup error: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)  # Log for debugging
-        return f"<h1>OAuth Configuration Error</h1><p>{str(e)}</p><pre>{traceback.format_exc()}</pre>", 500
+        # Log to both print and Flask logger
+        print(error_msg)
+        import logging
+        logging.error(error_msg)
+        # Return detailed error page
+        return f"""
+        <h1>OAuth Configuration Error</h1>
+        <p><strong>Error:</strong> {str(e)}</p>
+        <h2>Configuration Status:</h2>
+        <ul>
+            <li>REDIRECT_URI: {REDIRECT_URI}</li>
+            <li>CLIENT_CONFIG set: {CLIENT_CONFIG is not None}</li>
+            <li>CLIENT_SECRETS_FILE: {CLIENT_SECRETS_FILE}</li>
+            <li>CLIENT_SECRETS_FILE exists: {os.path.exists(CLIENT_SECRETS_FILE) if CLIENT_SECRETS_FILE else 'N/A'}</li>
+            <li>GOOGLE_CLIENT_SECRET_ENV set: {GOOGLE_CLIENT_SECRET_ENV is not None}</li>
+        </ul>
+        <h2>Full Traceback:</h2>
+        <pre>{traceback.format_exc()}</pre>
+        """, 500
 
 
 @app.route("/oauth/callback")
