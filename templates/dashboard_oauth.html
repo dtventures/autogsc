@@ -336,6 +336,48 @@
         .site-list-item:hover {
             background: var(--surface-hover);
         }
+
+        .gsc-banner {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            border-radius: 10px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .gsc-banner-text {
+            font-size: 0.9rem;
+            color: #fcd34d;
+        }
+
+        .gsc-banner-text strong {
+            display: block;
+            margin-bottom: 0.2rem;
+            font-size: 1rem;
+        }
+
+        .btn-connect-gsc {
+            background: #f59e0b;
+            color: #000;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            text-decoration: none;
+            display: inline-block;
+            transition: background 0.2s;
+        }
+
+        .btn-connect-gsc:hover {
+            background: #d97706;
+        }
     </style>
 </head>
 
@@ -380,6 +422,16 @@
         </div>
 
         <div class="content-scroll" id="dashboard-content" style="display:none;">
+            {% if session.get('auth_method') == 'email' and not session.get('credentials') %}
+            <div class="gsc-banner">
+                <div class="gsc-banner-text">
+                    <strong>Connect Google Search Console</strong>
+                    Link your Google account to enable scanning and indexing features.
+                </div>
+                <a href="/connect/gsc" class="btn-connect-gsc">Connect Google</a>
+            </div>
+            {% endif %}
+
             <h2>Overview</h2>
 
             <div class="stats-grid">

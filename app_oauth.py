@@ -1,22 +1,66 @@
 """
 AutoGSC SaaS Version - OAuth-based Authentication
-Users login with Google, no manual setup required.
+Users login with Google or email/password. Email users can connect GSC from dashboard.
 """
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from werkzeug.security import generate_password_hash, check_password_hash
 from threading import Thread
 import subprocess
 import os
 import sys
 import json
 import secrets
+import sqlite3
 
 app = Flask(__name__)
 # Read secret key from environment or generate one
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+
+# SQLite DB for email/password users
+DB_PATH = os.path.join(os.path.dirname(__file__), 'autogsc_users.db')
+
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    with get_db() as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                name TEXT,
+                password_hash TEXT,
+                gsc_credentials TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+
+
+def get_user_by_email(email):
+    with get_db() as conn:
+        return conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+
+
+def get_or_create_user(email, name=None):
+    with get_db() as conn:
+        user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        if not user:
+            conn.execute('INSERT INTO users (email, name) VALUES (?, ?)', (email, name))
+            conn.commit()
+            user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        return user
+
+
+init_db()
 
 # Get application root for subpath deployment (Vercel/Render)
 APPLICATION_ROOT = os.environ.get('APPLICATION_ROOT', '/')
@@ -137,9 +181,14 @@ def credentials_to_dict(credentials):
 
 
 def get_user_credentials():
-    """Get credentials from session."""
+    """Get credentials from session, loading from DB if needed for email users."""
     if 'credentials' not in session:
-        return None
+        if session.get('auth_method') == 'email' and 'user' in session:
+            user = get_user_by_email(session['user']['email'])
+            if user and user['gsc_credentials']:
+                session['credentials'] = json.loads(user['gsc_credentials'])
+        if 'credentials' not in session:
+            return None
     return Credentials(**session['credentials'])
 
 
@@ -186,17 +235,22 @@ def terms():
 
 @app.route("/login")
 def login():
-    """Start OAuth flow."""
+    """Show login page with Google and email/password options."""
+    if 'user' in session:
+        return redirect(url_for('index'))
+    return render_template("login.html")
+
+
+@app.route("/auth/google")
+def auth_google():
+    """Start Google OAuth flow."""
     try:
-        # Log configuration status for debugging
         import logging
         logging.basicConfig(level=logging.INFO)
         logger = logging.getLogger(__name__)
-        
         logger.info(f"REDIRECT_URI: {REDIRECT_URI}")
         logger.info(f"CLIENT_CONFIG set: {CLIENT_CONFIG is not None}")
-        logger.info(f"CLIENT_SECRETS_FILE: {CLIENT_SECRETS_FILE}")
-        
+
         flow = get_flow()
         authorization_url, state = flow.authorization_url(
             access_type='offline',
@@ -208,11 +262,9 @@ def login():
     except Exception as e:
         import traceback
         error_msg = f"OAuth setup error: {str(e)}\n{traceback.format_exc()}"
-        # Log to both print and Flask logger
         print(error_msg)
         import logging
         logging.error(error_msg)
-        # Return detailed error page
         return f"""
         <h1>OAuth Configuration Error</h1>
         <p><strong>Error:</strong> {str(e)}</p>
@@ -229,36 +281,127 @@ def login():
         """, 500
 
 
+@app.route("/register", methods=["GET"])
+def register():
+    """Show registration page."""
+    if 'user' in session:
+        return redirect(url_for('index'))
+    return render_template("register.html")
+
+
+@app.route("/register", methods=["POST"])
+def register_post():
+    """Create new email/password user."""
+    name = request.form.get('name', '').strip()
+    email = request.form.get('email', '').strip().lower()
+    password = request.form.get('password', '')
+    confirm = request.form.get('confirm_password', '')
+
+    if not email or not password:
+        return render_template("register.html", error="Email and password are required.", name=name, email=email)
+    if password != confirm:
+        return render_template("register.html", error="Passwords do not match.", name=name, email=email)
+    if len(password) < 6:
+        return render_template("register.html", error="Password must be at least 6 characters.", name=name, email=email)
+
+    existing = get_user_by_email(email)
+    if existing:
+        return render_template("register.html", error="An account with this email already exists.", name=name, email=email)
+
+    password_hash = generate_password_hash(password)
+    with get_db() as conn:
+        conn.execute('INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)',
+                     (email, name or email, password_hash))
+        conn.commit()
+
+    session['user'] = {'email': email, 'name': name or email}
+    session['auth_method'] = 'email'
+    return redirect(url_for('index'))
+
+
+@app.route("/auth/email-login", methods=["POST"])
+def email_login():
+    """Login with email and password."""
+    email = request.form.get('email', '').strip().lower()
+    password = request.form.get('password', '')
+
+    if not email or not password:
+        return render_template("login.html", error="Email and password are required.")
+
+    user = get_user_by_email(email)
+    if not user or not user['password_hash']:
+        return render_template("login.html", error="Invalid email or password.")
+    if not check_password_hash(user['password_hash'], password):
+        return render_template("login.html", error="Invalid email or password.")
+
+    session['user'] = {'email': user['email'], 'name': user['name'] or user['email']}
+    session['auth_method'] = 'email'
+
+    if user['gsc_credentials']:
+        session['credentials'] = json.loads(user['gsc_credentials'])
+
+    return redirect(url_for('index'))
+
+
+@app.route("/connect/gsc")
+def connect_gsc():
+    """Start GSC OAuth flow for an already-logged-in email user."""
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    try:
+        flow = get_flow()
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true',
+            prompt='consent'
+        )
+        session['state'] = state
+        session['connecting_gsc'] = True
+        return redirect(authorization_url)
+    except Exception as e:
+        import traceback
+        return f"<h1>Error starting OAuth</h1><p>{str(e)}</p><pre>{traceback.format_exc()}</pre>", 500
+
+
 @app.route("/oauth/callback")
 def oauth_callback():
-    """Handle OAuth callback."""
+    """Handle OAuth callback — both new Google login and email-user GSC connection."""
     try:
         flow = get_flow()
         flow.fetch_token(authorization_response=request.url)
-        
         credentials = flow.credentials
-        session['credentials'] = credentials_to_dict(credentials)
+        credentials_dict = credentials_to_dict(credentials)
     except Exception as e:
         import traceback
         error_msg = f"OAuth callback error: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)  # Log for debugging
+        print(error_msg)
         return f"<h1>OAuth Callback Error</h1><p>{str(e)}</p><pre>{traceback.format_exc()}</pre>", 500
-    
-    # Get user info
-    from google.oauth2 import id_token
-    from google.auth.transport import requests as google_requests
-    
+
+    # If an email user was connecting GSC, store credentials and return to dashboard
+    if session.get('connecting_gsc') and 'user' in session:
+        email = session['user']['email']
+        with get_db() as conn:
+            conn.execute('UPDATE users SET gsc_credentials = ? WHERE email = ?',
+                         (json.dumps(credentials_dict), email))
+            conn.commit()
+        session['credentials'] = credentials_dict
+        session.pop('connecting_gsc', None)
+        return redirect(url_for('index'))
+
+    # Normal Google login: get user info and set session
     try:
-        # Build a service to get user email
         service = build('oauth2', 'v2', credentials=credentials)
         user_info = service.userinfo().get().execute()
-        session['user'] = {
-            'email': user_info.get('email'),
-            'name': user_info.get('name', user_info.get('email'))
-        }
-    except Exception as e:
-        session['user'] = {'email': 'unknown', 'name': 'User'}
-    
+        google_email = user_info.get('email')
+        google_name = user_info.get('name', google_email)
+    except Exception:
+        google_email = 'unknown'
+        google_name = 'User'
+
+    session['credentials'] = credentials_dict
+    session['user'] = {'email': google_email, 'name': google_name}
+    session['auth_method'] = 'google'
+
     return redirect(url_for('index'))
 
 
@@ -447,7 +590,7 @@ def api_submit():
 
 if __name__ == "__main__":
     # Check for client_secret.json
-    if not os.path.exists(CLIENT_SECRETS_FILE):
+    if CLIENT_SECRETS_FILE and not os.path.exists(CLIENT_SECRETS_FILE):
         print("\n" + "="*60)
         print("  SETUP REQUIRED: OAuth Client Secret")
         print("="*60)
