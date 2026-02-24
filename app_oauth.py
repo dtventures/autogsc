@@ -20,8 +20,13 @@ app = Flask(__name__)
 # Read secret key from environment or generate one
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
-# SQLite DB for email/password users
-DB_PATH = os.path.join(os.path.dirname(__file__), 'autogsc_users.db')
+# SQLite DB for email/password users.
+# Use /tmp on serverless platforms (Vercel/Lambda) where the app dir is read-only.
+# Override with DB_PATH env var for a persistent location (e.g. on Render).
+DB_PATH = os.environ.get(
+    'DB_PATH',
+    os.path.join('/tmp' if os.environ.get('VERCEL') else os.path.dirname(os.path.abspath(__file__)), 'autogsc_users.db')
+)
 
 
 def get_db():
@@ -60,7 +65,10 @@ def get_or_create_user(email, name=None):
         return user
 
 
-init_db()
+try:
+    init_db()
+except Exception as _db_init_err:
+    print(f"Warning: could not initialise user DB at {DB_PATH}: {_db_init_err}")
 
 # Get application root for subpath deployment (Vercel/Render)
 APPLICATION_ROOT = os.environ.get('APPLICATION_ROOT', '/')
