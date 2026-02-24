@@ -596,68 +596,61 @@ def api_stats():
 
 @app.route("/api/scan", methods=["POST"])
 def api_scan():
-    """Scan sitemap and check indexing status."""
+    """Scan sitemap and check indexing status concurrently."""
+    from concurrent.futures import ThreadPoolExecutor
+    import requests as req_lib
+    import google.auth.transport.requests as google_transport
+
     try:
         credentials = get_user_credentials()
         if not credentials:
             return jsonify({'error': 'Not logged in'}), 401
-        
+
         if 'selected_site' not in session:
             return jsonify({'error': 'No site selected'}), 400
-        
+
         site = session['selected_site']
-        
-        # Import sitemap parser
+        site_url = site['site_url']
+
         from sitemap_parser import get_all_urls
-        
-        # Get all URLs from sitemap
         urls = get_all_urls(site['sitemap_url'])
-        
-        results = {
-            'total': len(urls),
-            'indexed': 0,
-            'not_indexed': 0,
-            'errors': 0,
-            'urls': []
-        }
-        
-        # Check each URL's status
+
+        # Ensure we have a fresh access token before spawning threads
         try:
-            service = build('searchconsole', 'v1', credentials=credentials)
-            
-            for url in urls:
-                try:
-                    response = service.urlInspection().index().inspect(
-                        body={'inspectionUrl': url, 'siteUrl': site['site_url']}
-                    ).execute()
-                    
-                    result = response.get('inspectionResult', {})
-                    index_status = result.get('indexStatusResult', {})
-                    coverage = index_status.get('coverageState', 'Unknown')
-                    
-                    is_indexed = 'indexed' in coverage.lower() and 'not' not in coverage.lower()
-                    
-                    results['urls'].append({
-                        'url': url,
-                        'status': 'indexed' if is_indexed else coverage,
-                        'indexed': is_indexed
-                    })
-                    
-                    if is_indexed:
-                        results['indexed'] += 1
-                    else:
-                        results['not_indexed'] += 1
-                        
-                except HttpError as e:
-                    results['errors'] += 1
-                    results['urls'].append({
-                        'url': url,
-                        'status': 'error',
-                        'indexed': False
-                    })
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-        
+            credentials.refresh(google_transport.Request())
+        except Exception:
+            pass
+        token = credentials.token
+
+        def check_url(url):
+            try:
+                resp = req_lib.post(
+                    'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect',
+                    headers={'Authorization': f'Bearer {token}'},
+                    json={'inspectionUrl': url, 'siteUrl': site_url},
+                    timeout=20
+                )
+                if resp.status_code != 200:
+                    return {'url': url, 'status': 'error', 'indexed': False, '_err': True}
+                coverage = resp.json().get('inspectionResult', {}).get('indexStatusResult', {}).get('coverageState', 'Unknown')
+                is_indexed = 'indexed' in coverage.lower() and 'not' not in coverage.lower()
+                return {'url': url, 'status': 'indexed' if is_indexed else coverage, 'indexed': is_indexed, '_err': False}
+            except Exception:
+                return {'url': url, 'status': 'error', 'indexed': False, '_err': True}
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            url_results = list(executor.map(check_url, urls))
+
+        results = {'total': len(urls), 'indexed': 0, 'not_indexed': 0, 'errors': 0, 'urls': []}
+        for r in url_results:
+            results['urls'].append({'url': r['url'], 'status': r['status'], 'indexed': r['indexed']})
+            if r['_err']:
+                results['errors'] += 1
+            elif r['indexed']:
+                results['indexed'] += 1
+            else:
+                results['not_indexed'] += 1
+
         return jsonify(results)
 
     except Exception as e:
