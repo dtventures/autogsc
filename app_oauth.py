@@ -16,59 +16,173 @@ import json
 import secrets
 import sqlite3
 
+# psycopg2 is only needed when DATABASE_URL is set (Supabase / any Postgres)
+try:
+    import psycopg2
+    import psycopg2.extras
+except ImportError:
+    psycopg2 = None
+
 app = Flask(__name__)
 # Read secret key from environment or generate one
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
-# SQLite DB for email/password users.
-# Use /tmp on serverless platforms (Vercel/Lambda) where the app dir is read-only.
-# Override with DB_PATH env var for a persistent location (e.g. on Render).
-DB_PATH = os.environ.get(
+# --- Database: Supabase (Postgres) when DATABASE_URL is set, SQLite otherwise ---
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+# SQLite fallback path (local dev, no DATABASE_URL)
+_sqlite_path = os.environ.get(
     'DB_PATH',
     os.path.join('/tmp' if os.environ.get('VERCEL') else os.path.dirname(os.path.abspath(__file__)), 'autogsc_users.db')
 )
 
 
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
+def _pg():
+    """Open a Postgres connection with dict-like rows."""
+    return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+
+
+def _sqlite():
+    """Open a SQLite connection with dict-like rows."""
+    conn = sqlite3.connect(_sqlite_path)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def init_db():
-    with get_db() as conn:
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT UNIQUE NOT NULL,
-                name TEXT,
-                password_hash TEXT,
-                gsc_credentials TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        conn.commit()
+    if DATABASE_URL:
+        conn = _pg()
+        try:
+            with conn.cursor() as cur:
+                cur.execute('''
+                    CREATE TABLE IF NOT EXISTS users (
+                        id SERIAL PRIMARY KEY,
+                        email TEXT UNIQUE NOT NULL,
+                        name TEXT,
+                        password_hash TEXT,
+                        gsc_credentials TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+            conn.commit()
+        finally:
+            conn.close()
+    else:
+        conn = _sqlite()
+        try:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT UNIQUE NOT NULL,
+                    name TEXT,
+                    password_hash TEXT,
+                    gsc_credentials TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.commit()
+        finally:
+            conn.close()
 
 
 def get_user_by_email(email):
-    with get_db() as conn:
-        return conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+    if DATABASE_URL:
+        conn = _pg()
+        try:
+            with conn.cursor() as cur:
+                cur.execute('SELECT * FROM users WHERE email = %s', (email,))
+                return cur.fetchone()
+        finally:
+            conn.close()
+    else:
+        conn = _sqlite()
+        try:
+            return conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        finally:
+            conn.close()
 
 
 def get_or_create_user(email, name=None):
-    with get_db() as conn:
-        user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-        if not user:
-            conn.execute('INSERT INTO users (email, name) VALUES (?, ?)', (email, name))
+    if DATABASE_URL:
+        conn = _pg()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    'INSERT INTO users (email, name) VALUES (%s, %s) ON CONFLICT (email) DO NOTHING',
+                    (email, name)
+                )
+                conn.commit()
+                cur.execute('SELECT * FROM users WHERE email = %s', (email,))
+                return cur.fetchone()
+        finally:
+            conn.close()
+    else:
+        conn = _sqlite()
+        try:
+            row = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+            if not row:
+                conn.execute('INSERT INTO users (email, name) VALUES (?, ?)', (email, name))
+                conn.commit()
+                row = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+            return row
+        finally:
+            conn.close()
+
+
+def _db_insert_user(email, name, password_hash):
+    """Insert a new email/password user."""
+    if DATABASE_URL:
+        conn = _pg()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    'INSERT INTO users (email, name, password_hash) VALUES (%s, %s, %s)',
+                    (email, name, password_hash)
+                )
             conn.commit()
-            user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-        return user
+        finally:
+            conn.close()
+    else:
+        conn = _sqlite()
+        try:
+            conn.execute(
+                'INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)',
+                (email, name, password_hash)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def _db_save_gsc_credentials(email, credentials_json):
+    """Persist GSC credentials for an email user."""
+    if DATABASE_URL:
+        conn = _pg()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    'UPDATE users SET gsc_credentials = %s WHERE email = %s',
+                    (credentials_json, email)
+                )
+            conn.commit()
+        finally:
+            conn.close()
+    else:
+        conn = _sqlite()
+        try:
+            conn.execute(
+                'UPDATE users SET gsc_credentials = ? WHERE email = ?',
+                (credentials_json, email)
+            )
+            conn.commit()
+        finally:
+            conn.close()
 
 
 try:
     init_db()
 except Exception as _db_init_err:
-    print(f"Warning: could not initialise user DB at {DB_PATH}: {_db_init_err}")
+    print(f"Warning: could not initialise user DB: {_db_init_err}")
 
 # Get application root for subpath deployment (Vercel/Render)
 APPLICATION_ROOT = os.environ.get('APPLICATION_ROOT', '/')
@@ -317,10 +431,7 @@ def register_post():
         return render_template("register.html", error="An account with this email already exists.", name=name, email=email)
 
     password_hash = generate_password_hash(password)
-    with get_db() as conn:
-        conn.execute('INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)',
-                     (email, name or email, password_hash))
-        conn.commit()
+    _db_insert_user(email, name or email, password_hash)
 
     session['user'] = {'email': email, 'name': name or email}
     session['auth_method'] = 'email'
@@ -388,10 +499,7 @@ def oauth_callback():
     # If an email user was connecting GSC, store credentials and return to dashboard
     if session.get('connecting_gsc') and 'user' in session:
         email = session['user']['email']
-        with get_db() as conn:
-            conn.execute('UPDATE users SET gsc_credentials = ? WHERE email = ?',
-                         (json.dumps(credentials_dict), email))
-            conn.commit()
+        _db_save_gsc_credentials(email, json.dumps(credentials_dict))
         session['credentials'] = credentials_dict
         session.pop('connecting_gsc', None)
         return redirect(url_for('index'))
