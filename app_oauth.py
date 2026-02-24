@@ -178,6 +178,12 @@ def privacy():
     return render_template("privacy.html")
 
 
+@app.route("/terms")
+def terms():
+    """Terms of Service page (required for OAuth verification)."""
+    return render_template("terms.html")
+
+
 @app.route("/login")
 def login():
     """Start OAuth flow."""
@@ -332,67 +338,74 @@ def api_stats():
 @app.route("/api/scan", methods=["POST"])
 def api_scan():
     """Scan sitemap and check indexing status."""
-    credentials = get_user_credentials()
-    if not credentials:
-        return jsonify({'error': 'Not logged in'}), 401
-    
-    if 'selected_site' not in session:
-        return jsonify({'error': 'No site selected'}), 400
-    
-    site = session['selected_site']
-    
-    # Import sitemap parser
-    from sitemap_parser import get_all_urls
-    
-    # Get all URLs from sitemap
-    urls = get_all_urls(site['sitemap_url'])
-    
-    results = {
-        'total': len(urls),
-        'indexed': 0,
-        'not_indexed': 0,
-        'errors': 0,
-        'urls': []
-    }
-    
-    # Check each URL's status
     try:
-        service = build('searchconsole', 'v1', credentials=credentials)
+        credentials = get_user_credentials()
+        if not credentials:
+            return jsonify({'error': 'Not logged in'}), 401
         
-        for url in urls:
-            try:
-                response = service.urlInspection().index().inspect(
-                    body={'inspectionUrl': url, 'siteUrl': site['site_url']}
-                ).execute()
-                
-                result = response.get('inspectionResult', {})
-                index_status = result.get('indexStatusResult', {})
-                coverage = index_status.get('coverageState', 'Unknown')
-                
-                is_indexed = 'indexed' in coverage.lower() and 'not' not in coverage.lower()
-                
-                results['urls'].append({
-                    'url': url,
-                    'status': 'indexed' if is_indexed else coverage,
-                    'indexed': is_indexed
-                })
-                
-                if is_indexed:
-                    results['indexed'] += 1
-                else:
-                    results['not_indexed'] += 1
+        if 'selected_site' not in session:
+            return jsonify({'error': 'No site selected'}), 400
+        
+        site = session['selected_site']
+        
+        # Import sitemap parser
+        from sitemap_parser import get_all_urls
+        
+        # Get all URLs from sitemap
+        urls = get_all_urls(site['sitemap_url'])
+        
+        results = {
+            'total': len(urls),
+            'indexed': 0,
+            'not_indexed': 0,
+            'errors': 0,
+            'urls': []
+        }
+        
+        # Check each URL's status
+        try:
+            service = build('searchconsole', 'v1', credentials=credentials)
+            
+            for url in urls:
+                try:
+                    response = service.urlInspection().index().inspect(
+                        body={'inspectionUrl': url, 'siteUrl': site['site_url']}
+                    ).execute()
                     
-            except HttpError as e:
-                results['errors'] += 1
-                results['urls'].append({
-                    'url': url,
-                    'status': 'error',
-                    'indexed': False
-                })
+                    result = response.get('inspectionResult', {})
+                    index_status = result.get('indexStatusResult', {})
+                    coverage = index_status.get('coverageState', 'Unknown')
+                    
+                    is_indexed = 'indexed' in coverage.lower() and 'not' not in coverage.lower()
+                    
+                    results['urls'].append({
+                        'url': url,
+                        'status': 'indexed' if is_indexed else coverage,
+                        'indexed': is_indexed
+                    })
+                    
+                    if is_indexed:
+                        results['indexed'] += 1
+                    else:
+                        results['not_indexed'] += 1
+                        
+                except HttpError as e:
+                    results['errors'] += 1
+                    results['urls'].append({
+                        'url': url,
+                        'status': 'error',
+                        'indexed': False
+                    })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+        
+        return jsonify(results)
+
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    
-    return jsonify(results)
+        import traceback
+        error_msg = f"Scan error: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return jsonify({'error': str(e), 'details': error_msg}), 500
 
 
 @app.route("/api/submit", methods=["POST"])
@@ -458,7 +471,7 @@ Then restart this app.
     
     print("\n" + "="*50)
     print("  AutoGSC SaaS Version")
-    print("  Open: http://localhost:5000")
+    print("  Open: http://localhost:8080")
     print("="*50 + "\n")
     
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=8080)

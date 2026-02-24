@@ -5,9 +5,19 @@ Fetches and parses XML sitemaps to extract all URLs.
 import requests
 import xml.etree.ElementTree as ET
 from typing import List
-from rich.console import Console
-
-console = Console()
+try:
+    from rich.console import Console
+    console = Console()
+except ImportError:
+    class Console:
+        def print(self, *args, **kwargs):
+            # Strip rich markup (simple approximation) or just print raw
+            msg = " ".join(str(a) for a in args)
+            # Remove [color] tags roughly
+            import re
+            clean_msg = re.sub(r'\[/?[a-z]+\]', '', msg)
+            print(clean_msg)
+    console = Console()
 
 
 def fetch_sitemap(sitemap_url: str) -> str:

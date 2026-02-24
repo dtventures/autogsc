@@ -407,7 +407,11 @@
                     <p id="status-text" style="color: #666; font-size: 0.9rem;">Check sitemap and submit unindexed URLs.
                     </p>
                 </div>
-                <button class="btn-run" id="run-button" onclick="runScan()">▶ Run Scan</button>
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="btn-run" id="submit-button" onclick="submitUrls()"
+                        style="display:none; background:#f59e0b; color:#000;">⚡ Index URLs</button>
+                    <button class="btn-run" id="run-button" onclick="runScan()">▶ Run Scan</button>
+                </div>
             </div>
 
             <div class="url-list-container">
@@ -434,25 +438,39 @@
     <script>
         // JS Logic (Copied and adapted from previous version)
         let selectedSite = null;
+        let unindexedUrls = [];
+
+        async function safeJson(res) {
+            const ct = res.headers.get('content-type') || '';
+            if (!ct.includes('application/json')) {
+                throw new Error(`Server error ${res.status}: unexpected response`);
+            }
+            return res.json();
+        }
 
         async function init() {
-            const userRes = await fetch('/api/user');
-            const userData = await userRes.json();
-            if (userData.logged_in) {
-                document.getElementById('user-email').textContent = userData.user.email;
-                document.getElementById('user-initial').textContent = userData.user.email[0].toUpperCase();
+            try {
+                const userRes = await fetch('/api/user');
+                const userData = await safeJson(userRes);
+                if (userData.logged_in) {
+                    document.getElementById('user-email').textContent = userData.user.email;
+                    document.getElementById('user-initial').textContent = userData.user.email[0].toUpperCase();
+                }
+                await loadSites();
+            } catch (e) {
+                console.error('Init error:', e);
             }
-            await loadSites();
         }
 
         async function loadSites() {
             const list = document.getElementById('site-list');
             try {
                 const res = await fetch('/api/sites');
-                const sites = await res.json();
+                const sites = await safeJson(res);
 
-                if (sites.length === 0) list.innerHTML = '<div style="padding:1rem; color:#888;">No sites found.</div>';
-                else {
+                if (!Array.isArray(sites) || sites.length === 0) {
+                    list.innerHTML = '<div style="padding:1rem; color:#888;">No sites found.</div>';
+                } else {
                     list.innerHTML = sites.map(site => `
                         <div class="site-list-item" onclick="selectSite('${site.siteUrl}')">
                             <div style="font-weight:500;">${site.siteUrl}</div>
@@ -485,23 +503,31 @@
         }
 
         async function loadStats() {
-            const res = await fetch('/api/stats');
-            const data = await res.json();
-            document.getElementById('total-urls').textContent = data.total_urls || 0;
-            document.getElementById('indexed').textContent = data.indexed || 0;
-            document.getElementById('unindexed').textContent = data.unindexed || 0;
-            document.getElementById('quota').textContent = `${data.today_submissions}/200`;
+            try {
+                const res = await fetch('/api/stats');
+                const data = await safeJson(res);
+                document.getElementById('total-urls').textContent = data.total_urls || 0;
+                document.getElementById('indexed').textContent = data.indexed || 0;
+                document.getElementById('unindexed').textContent = data.unindexed || 0;
+                document.getElementById('quota').textContent = `${data.today_submissions}/200`;
+            } catch (e) {
+                console.error('Stats error:', e);
+            }
         }
 
         async function runScan() {
             const btn = document.getElementById('run-button');
+            const submitBtn = document.getElementById('submit-button');
             const status = document.getElementById('status-text');
+
             btn.disabled = true;
+            if (submitBtn) submitBtn.style.display = 'none';
+
             status.textContent = 'Scanning sitemap...';
 
             try {
                 const res = await fetch('/api/scan', { method: 'POST' });
-                const data = await res.json();
+                const data = await safeJson(res);
 
                 if (data.error) throw new Error(data.error);
 
@@ -509,6 +535,9 @@
                 document.getElementById('total-urls').textContent = data.total;
                 document.getElementById('indexed').textContent = data.indexed;
                 document.getElementById('unindexed').textContent = data.not_indexed;
+
+                // Store unindexed URLs for submission
+                unindexedUrls = data.urls.filter(u => !u.indexed).map(u => u.url);
 
                 // List
                 const list = document.getElementById('url-list');
@@ -519,13 +548,51 @@
                     </div>
                 `).join('');
 
-                // Submit logic would go here (simplified for layout demo)
-                status.textContent = 'Scan complete.';
+                status.textContent = `Scan complete. Found ${data.not_indexed} unindexed URLs.`;
+
+                // Show submit button if there are unindexed URLs
+                if (data.not_indexed > 0 && submitBtn) {
+                    submitBtn.style.display = 'inline-block';
+                    submitBtn.textContent = `⚡ Index ${data.not_indexed} URLs`;
+                }
 
             } catch (e) {
                 status.textContent = 'Error: ' + e.message;
             }
             btn.disabled = false;
+        }
+
+        async function submitUrls() {
+            const btn = document.getElementById('submit-button');
+            const status = document.getElementById('status-text');
+
+            if (!unindexedUrls.length) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Submitting...';
+            status.textContent = 'Submitting URLs to Google Indexing API...';
+
+            try {
+                const res = await fetch('/api/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ urls: unindexedUrls })
+                });
+                const data = await safeJson(res);
+
+                if (data.error) throw new Error(data.error);
+
+                status.textContent = `Success! Submitted ${data.submitted} URLs.`;
+                btn.style.display = 'none';
+
+                // Refresh stats
+                loadStats();
+
+            } catch (e) {
+                status.textContent = 'Submission Error: ' + e.message;
+                btn.textContent = 'Retry Submission';
+                btn.disabled = false;
+            }
         }
 
         init();
