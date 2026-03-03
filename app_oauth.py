@@ -398,28 +398,22 @@ def auth_google():
         logger.info(f"CLIENT_CONFIG set: {CLIENT_CONFIG is not None}")
 
         flow = get_flow()
+        # Disable library auto-PKCE and generate our own so we can store it in session
+        import hashlib, base64, secrets as _secrets
+        flow.oauth2session.pkce = None
+        code_verifier = _secrets.token_urlsafe(32)
+        code_challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(code_verifier.encode('ascii')).digest()
+        ).rstrip(b'=').decode('ascii')
         authorization_url, state = flow.authorization_url(
             access_type='offline',
             include_granted_scopes='true',
-            prompt='consent'
+            prompt='consent',
+            code_challenge=code_challenge,
+            code_challenge_method='S256'
         )
         session['state'] = state
-        # Extract PKCE code_verifier from wherever the library stored it
-        try:
-            code_verifier = flow.oauth2session._client.code_verifier
-        except AttributeError:
-            code_verifier = None
-        if code_verifier:
-            session['code_verifier'] = code_verifier
-        # Temporary debug: show the authorization URL so we can inspect redirect_uri
-        if request.args.get('debug') == '1':
-            from urllib.parse import urlparse, parse_qs
-            parsed = urlparse(authorization_url)
-            params = parse_qs(parsed.query)
-            return jsonify({
-                "redirect_uri_sent": params.get('redirect_uri', ['not found'])[0],
-                "full_url": authorization_url
-            })
+        session['code_verifier'] = code_verifier
         return redirect(authorization_url)
     except Exception as e:
         import traceback
@@ -509,19 +503,22 @@ def connect_gsc():
         return redirect(url_for('login'))
     try:
         flow = get_flow()
+        import hashlib, base64, secrets as _secrets
+        flow.oauth2session.pkce = None
+        code_verifier = _secrets.token_urlsafe(32)
+        code_challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(code_verifier.encode('ascii')).digest()
+        ).rstrip(b'=').decode('ascii')
         authorization_url, state = flow.authorization_url(
             access_type='offline',
             include_granted_scopes='true',
-            prompt='consent'
+            prompt='consent',
+            code_challenge=code_challenge,
+            code_challenge_method='S256'
         )
         session['state'] = state
         session['connecting_gsc'] = True
-        try:
-            code_verifier = flow.oauth2session._client.code_verifier
-        except AttributeError:
-            code_verifier = None
-        if code_verifier:
-            session['code_verifier'] = code_verifier
+        session['code_verifier'] = code_verifier
         return redirect(authorization_url)
     except Exception as e:
         import traceback
