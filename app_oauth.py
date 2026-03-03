@@ -404,6 +404,15 @@ def auth_google():
             prompt='consent'
         )
         session['state'] = state
+        # Temporary debug: show the authorization URL so we can inspect redirect_uri
+        if request.args.get('debug') == '1':
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(authorization_url)
+            params = parse_qs(parsed.query)
+            return jsonify({
+                "redirect_uri_sent": params.get('redirect_uri', ['not found'])[0],
+                "full_url": authorization_url
+            })
         return redirect(authorization_url)
     except Exception as e:
         import traceback
