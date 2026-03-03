@@ -404,7 +404,11 @@ def auth_google():
             prompt='consent'
         )
         session['state'] = state
-        code_verifier = getattr(flow, 'code_verifier', None) or getattr(getattr(flow, 'oauth2session', None), 'code_verifier', None)
+        # Extract PKCE code_verifier from wherever the library stored it
+        try:
+            code_verifier = flow.oauth2session._client.code_verifier
+        except AttributeError:
+            code_verifier = None
         if code_verifier:
             session['code_verifier'] = code_verifier
         # Temporary debug: show the authorization URL so we can inspect redirect_uri
@@ -512,7 +516,10 @@ def connect_gsc():
         )
         session['state'] = state
         session['connecting_gsc'] = True
-        code_verifier = getattr(flow, 'code_verifier', None) or getattr(getattr(flow, 'oauth2session', None), 'code_verifier', None)
+        try:
+            code_verifier = flow.oauth2session._client.code_verifier
+        except AttributeError:
+            code_verifier = None
         if code_verifier:
             session['code_verifier'] = code_verifier
         return redirect(authorization_url)
