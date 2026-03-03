@@ -200,9 +200,24 @@ os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = os.environ.get('OAUTHLIB_INSECURE_TR
 # Get redirect URI from environment or use default
 REDIRECT_URI = os.environ.get('REDIRECT_URI', 'http://localhost:5000/oauth/callback')
 
-# Read client secret from environment (Render) or file (local dev)
+# Read client secret from environment (Render/Railway) or file (local dev)
 GOOGLE_CLIENT_SECRET_ENV = os.environ.get('GOOGLE_CLIENT_SECRET')
-if GOOGLE_CLIENT_SECRET_ENV:
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET_VALUE = os.environ.get('GOOGLE_CLIENT_SECRET_VALUE')
+
+if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET_VALUE:
+    # Simple two-var config (Railway-friendly)
+    CLIENT_CONFIG = {
+        "web": {
+            "client_id": GOOGLE_CLIENT_ID,
+            "client_secret": GOOGLE_CLIENT_SECRET_VALUE,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "redirect_uris": [REDIRECT_URI]
+        }
+    }
+    CLIENT_SECRETS_FILE = None
+elif GOOGLE_CLIENT_SECRET_ENV:
     # Parse JSON string from environment
     try:
         CLIENT_CONFIG = json.loads(GOOGLE_CLIENT_SECRET_ENV)
