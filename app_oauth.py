@@ -324,12 +324,21 @@ def index():
 @app.route("/debug/oauth-config")
 def debug_oauth_config():
     """Debug endpoint to check OAuth configuration (remove in production)."""
+    json_parse_error = None
+    if GOOGLE_CLIENT_SECRET_ENV and CLIENT_CONFIG is None:
+        try:
+            json.loads(GOOGLE_CLIENT_SECRET_ENV)
+        except Exception as e:
+            json_parse_error = str(e)
+
     config_status = {
         "CLIENT_CONFIG_set": CLIENT_CONFIG is not None,
         "CLIENT_SECRETS_FILE": CLIENT_SECRETS_FILE if CLIENT_SECRETS_FILE else "Not set",
         "CLIENT_SECRETS_FILE_exists": os.path.exists(CLIENT_SECRETS_FILE) if CLIENT_SECRETS_FILE else False,
         "REDIRECT_URI": REDIRECT_URI,
         "GOOGLE_CLIENT_SECRET_ENV_set": GOOGLE_CLIENT_SECRET_ENV is not None,
+        "GOOGLE_CLIENT_SECRET_first50": GOOGLE_CLIENT_SECRET_ENV[:50] if GOOGLE_CLIENT_SECRET_ENV else None,
+        "GOOGLE_CLIENT_SECRET_json_error": json_parse_error,
         "OAUTHLIB_INSECURE_TRANSPORT": os.environ.get('OAUTHLIB_INSECURE_TRANSPORT'),
     }
     if CLIENT_CONFIG:
