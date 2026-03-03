@@ -1,1 +1,1 @@
-web: gunicorn app_oauth:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+web: sh -c 'gunicorn app_oauth:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120'
