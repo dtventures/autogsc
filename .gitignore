@@ -24,6 +24,7 @@ service-account.json
 !package.json
 !package-lock.json
 !vercel.json
+!railway.json
 
 # IDE
 .vscode/
