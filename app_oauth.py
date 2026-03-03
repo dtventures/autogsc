@@ -404,6 +404,9 @@ def auth_google():
             prompt='consent'
         )
         session['state'] = state
+        code_verifier = getattr(flow, 'code_verifier', None) or getattr(getattr(flow, 'oauth2session', None), 'code_verifier', None)
+        if code_verifier:
+            session['code_verifier'] = code_verifier
         # Temporary debug: show the authorization URL so we can inspect redirect_uri
         if request.args.get('debug') == '1':
             from urllib.parse import urlparse, parse_qs
@@ -509,6 +512,9 @@ def connect_gsc():
         )
         session['state'] = state
         session['connecting_gsc'] = True
+        code_verifier = getattr(flow, 'code_verifier', None) or getattr(getattr(flow, 'oauth2session', None), 'code_verifier', None)
+        if code_verifier:
+            session['code_verifier'] = code_verifier
         return redirect(authorization_url)
     except Exception as e:
         import traceback
@@ -520,7 +526,10 @@ def oauth_callback():
     """Handle OAuth callback — both new Google login and email-user GSC connection."""
     try:
         flow = get_flow()
-        flow.fetch_token(authorization_response=request.url)
+        fetch_kwargs = {"authorization_response": request.url}
+        if session.get('code_verifier'):
+            fetch_kwargs['code_verifier'] = session.pop('code_verifier')
+        flow.fetch_token(**fetch_kwargs)
         credentials = flow.credentials
         credentials_dict = credentials_to_dict(credentials)
     except Exception as e:
