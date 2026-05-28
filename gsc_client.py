@@ -78,15 +78,19 @@ class GSCClient:
     def get_indexing_status(self, url: str) -> str:
         """
         Get simplified indexing status for a URL.
-        Returns: 'indexed', 'not_indexed', 'error', or the raw coverageState
+        Returns: 'indexed', 'blocked_robots', 'not_indexed', 'error', or the raw coverageState
         """
         result = self.inspect_url(url)
-        
+
         if not result:
             return 'error'
-        
+
+        # If robots.txt is blocking the page, there's no point submitting it
+        if result.get('robotsTxtState') == 'BLOCKED':
+            return 'blocked_robots'
+
         coverage = result.get('coverageState', '')
-        
+
         # Map to simplified status
         if 'Submitted and indexed' in coverage or result.get('verdict') == 'PASS':
             return 'indexed'

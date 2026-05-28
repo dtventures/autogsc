@@ -75,6 +75,9 @@ def scan(sitemap):
         elif status == 'error':
             error_count += 1
             symbol = "[yellow]?[/yellow]"
+        elif status == 'blocked_robots':
+            not_indexed_count += 1
+            symbol = "[yellow]⊘[/yellow]"
         else:
             not_indexed_count += 1
             symbol = "[red]✗[/red]"
@@ -183,16 +186,22 @@ def run(dry_run):
         return
     
     not_indexed = []
+    blocked_robots = []
     for url in urls:
         status = gsc.get_indexing_status(url)
         upsert_url(url, status)
-        if status != 'indexed' and status != 'error':
+        if status == 'blocked_robots':
+            blocked_robots.append(url)
+            console.print(f"  [yellow]⊘[/yellow] {url[:70]}... (blocked by robots.txt)")
+        elif status != 'indexed' and status != 'error':
             not_indexed.append(url)
             console.print(f"  [red]✗[/red] {url[:70]}...")
         else:
             console.print(f"  [green]✓[/green] {url[:70]}...")
-    
-    console.print(f"\n[cyan]Found {len(not_indexed)} unindexed URLs[/cyan]")
+
+    if blocked_robots:
+        console.print(f"\n[yellow]Skipping {len(blocked_robots)} URL(s) blocked by robots.txt[/yellow]")
+    console.print(f"[cyan]Found {len(not_indexed)} unindexed URLs[/cyan]")
     
     if not not_indexed:
         console.print("[green]All URLs are indexed! Nothing to do.[/green]")
